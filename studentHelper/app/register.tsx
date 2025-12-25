@@ -3,25 +3,25 @@ import { View, TextInput, Button, Text, Alert } from 'react-native';
 import { useSession } from '../ctx';
 import { useRouter } from 'expo-router';
 
-export default function SignIn() {
-  const { signIn } = useSession();
+export default function RegisterScreen() {
+  const { register } = useSession();
   const router = useRouter();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  const handleSignIn = async () => {
+  const handleRegister = async () => {
     try {
-      await signIn(email, password);
-      Alert.alert('Success', 'Logged in!');
-      router.replace('/'); // Navigate to protected/home screen
+      await register(email, password);
+      Alert.alert('Success', 'Account created! You can now log in.');
+      router.push('/sign-in');
     } catch (err: any) {
-      Alert.alert('Login Failed', err.message);
+      Alert.alert('Registration Failed', err.message);
     }
   };
 
   return (
-    <View style={{ flex: 1, justifyContent: 'center', padding: 20 }}>
+    <View style={{ padding: 20 }}>
       <Text style={{ marginBottom: 5 }}>Email:</Text>
       <TextInput
         value={email}
@@ -41,15 +41,15 @@ export default function SignIn() {
         style={{ borderWidth: 1, padding: 8, marginBottom: 20 }}
       />
 
-      <Button title="Sign In" onPress={handleSignIn} />
+      <Button title="Register" onPress={handleRegister} />
 
       <Text style={{ marginTop: 15, textAlign: 'center' }}>
-        Don't have an account?{' '}
+        Already have an account?{' '}
         <Text
           style={{ color: 'blue' }}
-          onPress={() => router.push('/register')} 
+          onPress={() => router.push('/sign-in')}
         >
-          Register
+          Sign In
         </Text>
       </Text>
     </View>
