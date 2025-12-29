@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, ActivityIndicator } from 'react-native';
+import { API_URL } from '../../../config/api';
 
 type Message = {
   id: string;
@@ -24,7 +25,6 @@ export default function AiHelperScreen() {
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
-    const API_URL = "http://192.168.100.13:5000";
     try {
       const response = await fetch(`${API_URL}/chat`, {
         method: 'POST',

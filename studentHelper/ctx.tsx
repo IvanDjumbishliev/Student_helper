@@ -1,5 +1,5 @@
 import { useContext, createContext, type PropsWithChildren } from 'react';
-
+import { API_URL } from './config/api';
 import { useStorageState } from './useStorageState';
 
 const AuthContext = createContext<{
@@ -28,7 +28,6 @@ export function useSession() {
 
 export function SessionProvider({ children }: PropsWithChildren) {
   const [[isLoading, session], setSession] = useStorageState('session');
-  const API_URL = "http://192.168.0.105:5000";
   const signIn = async (email: string, password: string) => {
     const res = await fetch(`${API_URL}/auth/login`, {
       method: "POST",

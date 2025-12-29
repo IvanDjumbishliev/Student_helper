@@ -1,15 +1,12 @@
 import { useEffect, useState } from 'react';
 import { View, Text, TextInput, Alert, StyleSheet, TouchableOpacity } from 'react-native';
 import { useSession } from '../../ctx';
+import { API_URL } from '../../config/api';
 
 export default function Profile() {
   const { session, signOut } = useSession();
   const [email, setEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
-
-  const API_URL = "http://192.168.100.13:5000";
-
-
 
   useEffect(() => {
   fetch(`${API_URL}/auth/myInfo`, {

@@ -14,7 +14,9 @@ export default function SignIn() {
     try {
       await signIn(email, password);
       Alert.alert('Success', 'Logged in!');
+      console.log("Login successful, navigating to /home");
       router.replace('/home'); 
+      console.log("Navigated to /home");
     } catch (err: any) {
       Alert.alert('Login Failed', err.message);
     }

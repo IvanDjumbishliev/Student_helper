@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar } from 'react-native-calendars';
-
-const API_URL = "http://192.168.0.105:5000/events"; 
+import { API_URL } from '../../config/api';
 
 export default function CalendarScreen() {
   const [markedDates, setMarkedDates] = useState({});
 
   useEffect(() => {
-    fetch(API_URL)
+    fetch(`${API_URL}/events`)
       .then(res => res.json())
       .then(data => {
         const formatted: Record<string, { marked: boolean; dotColor: string; selected: boolean }> = {};
