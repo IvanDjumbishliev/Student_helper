@@ -3,7 +3,11 @@ from flask_cors import CORS
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_sqlalchemy import SQLAlchemy
+from dotenv import load_dotenv
+import os
+import requests
 
+load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
@@ -15,11 +19,12 @@ events = {
 
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///db.sqlite3"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.config["JWT_SECRET_KEY"] = "unique_key_123"
+
+
 db = SQLAlchemy(app)
-
-
-app.config["JWT_SECRET_KEY"] = "change-this-later"
 jwt = JWTManager(app)
+
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -31,7 +36,6 @@ class User(db.Model):
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
-
 
 
 @app.post("/auth/register")
@@ -71,12 +75,88 @@ def login():
     if not user or not user.check_password(password):
         return {"message": "Invalid credentials"}, 401
 
-    token = create_access_token(identity=user.id)
+    token = create_access_token(identity=str(user.id))
     return {"access_token": token}
 
 @app.route('/events', methods=['GET'])
 def get_events():
     return jsonify(events)
+
+@app.get("/auth/myInfo")
+@jwt_required()
+def get_current_user():
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+
+    if not user:
+        return {"message": "User not found"}, 404
+
+    return {"id": user.id,"email": user.email}
+
+
+
+@app.post("/auth/change_password")
+@jwt_required()
+def change_password():
+    data = request.get_json()
+    new_password = data.get("password")
+
+    if not isinstance(new_password, str):
+        return {"message": "Invalid password"}, 400
+
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+
+    if not user:
+        return {"message": "User not found"}, 404
+
+    user.set_password(new_password)
+    db.session.commit()
+
+    return {"message": "Password updated successfully"}
+
+
+
+@app.route('/chat', methods=['POST'])
+def chat():
+    data_in = request.json
+    user_message = data_in.get("message")
+
+    if not user_message:
+        return jsonify({"error": "No message provided"}), 400
+
+    API_KEY = os.getenv("OPENROUTER_API_KEY") 
+    API_URL = 'https://openrouter.ai/api/v1/chat/completions'
+
+    headers = {
+        'Authorization': f'Bearer {API_KEY}',
+        'Content-Type': 'application/json',
+    }
+    payload = {
+        "model": "nex-agi/deepseek-v3.1-nex-n1:free", #deepseek/deepseek-r1-0528:free
+        "messages": [
+            {"role": "user", "content": user_message}
+        ]
+    }
+
+    try:
+        response = requests.post(API_URL, json=payload, headers=headers)
+
+        if response.status_code == 200:
+            result = response.json()
+            ai_reply = result['choices'][0]['message']['content']
+            
+            return jsonify({
+                "status": "success",
+                "reply": ai_reply
+            })
+        else:
+            print(f"OpenRouter Error: {response.text}")
+            return jsonify({"error": f"API Error: {response.status_code}"}), response.status_code
+
+    except Exception as e:
+        print(f"System Error: {e}")
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
     with app.app_context():
