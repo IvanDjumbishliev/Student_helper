@@ -1,26 +1,366 @@
 import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Alert } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { API_URL } from '../../config/api';
 
+type EventType = 'homework' | 'test' | 'project';
+
+interface CalendarEvent {
+  type: EventType;
+  description: string;
+}
+
 export default function CalendarScreen() {
   const [markedDates, setMarkedDates] = useState({});
+  const [events, setEvents] = useState<Record<string, CalendarEvent[]>>({});
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [eventType, setEventType] = useState<EventType>('homework');
+  const [description, setDescription] = useState('');
+  const [showForm, setShowForm] = useState(false);
 
+  // Fetch events from API
   useEffect(() => {
-    fetch(`${API_URL}/events`)
-      .then(res => res.json())
-      .then(data => {
-        const formatted: Record<string, { marked: boolean; dotColor: string; selected: boolean }> = {};
-        Object.keys(data).forEach(date => {
-          formatted[date] = { marked: true, dotColor: 'blue', selected: true };
-        });
-        setMarkedDates(formatted);
-      });
+    fetchEvents();
   }, []);
 
+  const fetchEvents = async () => {
+    try {
+      const response = await fetch(`${API_URL}/events`);
+      const data = await response.json();
+      setEvents(data || {});
+      updateMarkedDates(data || {});
+    } catch (error) {
+      console.error('Error fetching events:', error);
+    }
+  };
+
+  const updateMarkedDates = (eventsData: Record<string, CalendarEvent[]>) => {
+    const marked: Record<string, any> = {};
+    Object.keys(eventsData).forEach(date => {
+      const dayEvents = eventsData[date];
+      let dotColor = 'blue';
+
+      // Color based on event type
+      if (dayEvents.some(e => e.type === 'test')) {
+        dotColor = 'red';
+      } else if (dayEvents.some(e => e.type === 'project')) {
+        dotColor = 'orange';
+      } else if (dayEvents.some(e => e.type === 'homework')) {
+        dotColor = 'blue';
+      }
+
+      marked[date] = { marked: true, dotColor };
+    });
+
+    // Add blue circle to selected date
+    marked[selectedDate] = {
+      ...marked[selectedDate],
+      selected: true,
+      selectedColor: '#00adf5',
+      selectedTextColor: '#ffffff',
+    };
+
+    setMarkedDates(marked);
+  };
+
+  const handleAddEvent = async () => {
+    // Check if selected date is in the past
+    const today = new Date().toISOString().split('T')[0];
+    if (selectedDate < today) {
+      Alert.alert('Error', 'You cannot add events to past dates');
+      return;
+    }
+
+    if (!description.trim()) {
+      Alert.alert('Error', 'Please enter a description');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/events`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          date: selectedDate,
+          type: eventType,
+          description: description.trim(),
+        }),
+      });
+
+      if (response.ok) {
+        setDescription('');
+        setShowForm(false);
+        fetchEvents();
+        Alert.alert('Success', 'Event added successfully');
+      } else {
+        Alert.alert('Error', 'Failed to add event');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to add event');
+      console.error('Error adding event:', error);
+    }
+  };
+
+  const handleDateSelect = (day: any) => {
+    setSelectedDate(day.dateString);
+    // Update marked dates to show blue circle on new selection
+    const updated: Record<string, any> = { ...markedDates };
+    Object.keys(updated).forEach(date => {
+      if (updated[date].selected) {
+        delete updated[date].selected;
+        delete updated[date].selectedColor;
+        delete updated[date].selectedTextColor;
+      }
+    });
+    updated[day.dateString] = {
+      ...updated[day.dateString],
+      selected: true,
+      selectedColor: '#00adf5',
+      selectedTextColor: '#ffffff',
+    };
+    setMarkedDates(updated);
+  };
+
+  const getEventColor = (type: EventType) => {
+    switch (type) {
+      case 'test':
+        return '#FF6B6B';
+      case 'project':
+        return '#FFA500';
+      case 'homework':
+        return '#4A90E2';
+      default:
+        return '#999';
+    }
+  };
+
+  const dayEvents = events[selectedDate] || [];
+
   return (
-    <Calendar
-      markedDates={markedDates}
-      onDayPress={(day) => console.log('selected day', day)}
-    />
+    <ScrollView style={styles.container}>
+      <Calendar
+        markedDates={markedDates}
+        onDayPress={handleDateSelect}
+        theme={{
+          todayTextColor: '#00adf5',
+          selectedDayBackgroundColor: '#00adf5',
+          selectedDayTextColor: '#ffffff',
+          dotColor: '#00adf5',
+          selectedDotColor: '#ffffff',
+          arrowColor: '#00adf5',
+          monthTextColor: '#2d5016',
+        }}
+      />
+
+      {!showForm && (
+        <TouchableOpacity style={styles.addButtonContainer} onPress={() => setShowForm(true)}>
+          <Text style={styles.addButtonContainerText}>Add Event</Text>
+        </TouchableOpacity>
+      )}
+
+      {showForm && (
+        <View style={styles.formContainer}>
+          <Text style={styles.label}>Selected Date: {selectedDate}</Text>
+
+          <Text style={styles.label}>Event Type</Text>
+          <View style={styles.typeButtonsContainer}>
+            {(['homework', 'test', 'project'] as EventType[]).map((type) => (
+              <TouchableOpacity
+                key={type}
+                style={[
+                  styles.typeButton,
+                  eventType === type && styles.typeButtonActive,
+                  { backgroundColor: eventType === type ? getEventColor(type) : '#e0e0e0' },
+                ]}
+                onPress={() => setEventType(type)}
+              >
+                <Text
+                  style={{
+                    color: eventType === type ? '#fff' : '#333',
+                    fontWeight: 'bold',
+                    textTransform: 'capitalize',
+                  }}
+                >
+                  {type}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <Text style={styles.label}>Description</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Enter event description..."
+            value={description}
+            onChangeText={setDescription}
+            placeholderTextColor="#999"
+            multiline
+            numberOfLines={3}
+          />
+
+          <TouchableOpacity style={styles.submitButton} onPress={handleAddEvent}>
+            <Text style={styles.submitButtonText}>Save</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.cancelButton} onPress={() => setShowForm(false)}>
+            <Text style={styles.cancelButtonText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {dayEvents.length > 0 && (
+        <View style={styles.eventsListContainer}>
+          <Text style={styles.eventsTitle}>Events for {selectedDate}:</Text>
+          {dayEvents.map((event, index) => (
+            <View
+              key={index}
+              style={[
+                styles.eventItem,
+                { borderLeftColor: getEventColor(event.type) },
+              ]}
+            >
+              <Text style={styles.eventType}>{event.type.toUpperCase()}</Text>
+              <Text style={styles.eventDescription}>{event.description}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+    </ScrollView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  addButtonContainer: {
+    backgroundColor: '#00adf5',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    margin: 20,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addButtonContainerText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  formContainer: {
+    padding: 20,
+    backgroundColor: '#f5f5f5',
+    marginTop: 20,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 10,
+    color: '#333',
+    marginTop: 15,
+  },
+  typeButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 15,
+    gap: 10,
+  },
+  typeButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  typeButtonActive: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+    elevation: 5,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 15,
+    fontSize: 14,
+    color: '#333',
+    backgroundColor: '#fff',
+    textAlignVertical: 'top',
+  },
+  addButton: {
+    backgroundColor: '#00adf5',
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  addButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  submitButton: {
+    backgroundColor: '#00adf5',
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  submitButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  cancelButton: {
+    backgroundColor: '#ccc',
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  cancelButtonText: {
+    color: '#333',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  eventsListContainer: {
+    marginTop: 20,
+    paddingTop: 15,
+    borderTopWidth: 1,
+    borderTopColor: '#ddd',
+    paddingHorizontal: 20,
+  },
+  eventsTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    color: '#333',
+  },
+  eventItem: {
+    backgroundColor: '#fff',
+    padding: 12,
+    borderRadius: 6,
+    marginBottom: 10,
+    borderLeftWidth: 4,
+  },
+  eventType: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    marginBottom: 5,
+    color: '#666',
+  },
+  eventDescription: {
+    fontSize: 14,
+    color: '#333',
+  },
+});

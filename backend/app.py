@@ -12,10 +12,7 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app)
 
-events = {
-    '2025-12-25': [{'title': 'Christmas Party', 'time': '10:00 AM'}],
-    '2025-12-31': [{'title': 'New Years Eve', 'time': '11:59 PM'}]
-}
+events = {}
 
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///db.sqlite3"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
@@ -81,6 +78,29 @@ def login():
 @app.route('/events', methods=['GET'])
 def get_events():
     return jsonify(events)
+
+@app.route('/events', methods=['POST'])
+def create_event():
+    data = request.get_json()
+    date = data.get("date")
+    event_type = data.get("type")
+    description = data.get("description")
+
+    if not date or not event_type or not description:
+        return {"message": "Missing required fields"}, 400
+
+    if event_type not in ["homework", "test", "project"]:
+        return {"message": "Invalid event type"}, 400
+
+    if date not in events:
+        events[date] = []
+
+    events[date].append({
+        "type": event_type,
+        "description": description
+    })
+
+    return {"message": "Event created successfully", "data": events[date]}, 201
 
 @app.get("/auth/myInfo")
 @jwt_required()
