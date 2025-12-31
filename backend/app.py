@@ -44,6 +44,14 @@ class Message(db.Model):
     timestamp = db.Column(db.DateTime, default=datetime.datetime.utcnow)
 
 
+class Event(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    date = db.Column(db.String(10), nullable=False)
+    type = db.Column(db.String(20), nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+
+
 @app.post("/auth/register")
 def register():
     data = request.get_json()
@@ -86,7 +94,19 @@ def login():
 
 @app.route('/events', methods=['GET'])
 def get_events():
-    return jsonify(events)
+    events_from_db = Event.query.all()
+    events_by_date = {}
+    
+    for event in events_from_db:
+        if event.date not in events_by_date:
+            events_by_date[event.date] = []
+        events_by_date[event.date].append({
+            "id": event.id,
+            "type": event.type,
+            "description": event.description
+        })
+    
+    return jsonify(events_by_date)
 
 @app.route('/events', methods=['POST'])
 def create_event():
@@ -101,15 +121,28 @@ def create_event():
     if event_type not in ["homework", "test", "project"]:
         return {"message": "Invalid event type"}, 400
 
-    if date not in events:
-        events[date] = []
-
-    events[date].append({
-        "type": event_type,
-        "description": description
-    })
-
-    return {"message": "Event created successfully", "data": events[date]}, 201
+    # Create new event and save to database
+    new_event = Event(
+        date=date,
+        type=event_type,
+        description=description
+    )
+    
+    try:
+        db.session.add(new_event)
+        db.session.commit()
+        return {
+            "message": "Event created successfully",
+            "data": {
+                "id": new_event.id,
+                "date": new_event.date,
+                "type": new_event.type,
+                "description": new_event.description
+            }
+        }, 201
+    except Exception as e:
+        db.session.rollback()
+        return {"message": "Failed to create event", "error": str(e)}, 500
 
 @app.get("/auth/myInfo")
 @jwt_required()
