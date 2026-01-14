@@ -4,10 +4,9 @@ from flask_jwt_extended import JWTManager, create_access_token, jwt_required, ge
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
-from datetime import timedelta
+from datetime import timedelta, timezone, datetime
 import os
 import requests
-import datetime
 
 load_dotenv()
 
@@ -43,7 +42,7 @@ class Message(db.Model):
     user_id = db.Column(db.Integer, nullable=False)
     text = db.Column(db.Text, nullable=False)
     sender = db.Column(db.String(10), nullable=False)
-    timestamp = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    timestamp = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class Event(db.Model):
@@ -51,7 +50,23 @@ class Event(db.Model):
     date = db.Column(db.String(10), nullable=False)
     type = db.Column(db.String(20), nullable=False)
     description = db.Column(db.Text, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+class ChatSession(db.Model):
+    id = db.Column(db.String(50), primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    title = db.Column(db.String(100))
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    messages = db.relationship('ChatMessage', backref='session', lazy=True, cascade="all, delete-orphan")
+
+class ChatMessage(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(db.String(50), db.ForeignKey('chat_session.id'), nullable=False)
+    role = db.Column(db.String(20)) 
+    content = db.Column(db.Text)
+    has_image = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
 
 
 @app.post("/auth/register")
@@ -180,136 +195,89 @@ def change_password():
     return {"message": "Password updated successfully"}
 
 
-@app.route('/chat/history', methods=['GET'])
-@jwt_required()
-def get_chat_history():
-    user_id = int(get_jwt_identity())
-    messages = Message.query.filter_by(user_id=user_id).order_by(Message.timestamp.asc()).all()
-    
-    output = []
-    for msg in messages:
-        output.append({
-            'id': str(msg.id),
-            'text': msg.text,
-            'from': msg.sender
-        })
-    
-    return jsonify({'messages': output})
 
-
-@app.route('/chat', methods=['POST'])
+@app.route('/chat/message', methods=['POST'])
 @jwt_required()
-def chat():
-    user_id = int(get_jwt_identity())
+def handle_chat():
+    user_id = get_jwt_identity()
     data_in = request.json
-    user_message = data_in.get("message")
+    
+    session_id = data_in.get("session_id")
+    image_b64 = data_in.get("image")
+    user_text = data_in.get("message", "").strip()
 
-    if not user_message:
-        return jsonify({"error": "No message provided"}), 400
+    if not user_text and not image_b64:
+        return jsonify({"error": "Empty message"}), 400
 
+    
+    chat_session = ChatSession.query.get(session_id)
+    if not chat_session:
+        title_preview = user_text[:30] if user_text else "Image Shared"
+        chat_session = ChatSession(id=session_id, user_id=user_id, title=title_preview)
+        db.session.add(chat_session)
 
-    new_msg = Message(user_id=user_id, text=user_message, sender='user')
-    db.session.add(new_msg)
+    user_db_msg = ChatMessage(session_id=session_id, role='user', content=user_text)
+    db.session.add(user_db_msg)
     db.session.commit()
 
+    history = ChatMessage.query.filter_by(session_id=session_id).order_by(ChatMessage.created_at.asc()).limit(15).all()
+    
+    messages_payload = []
+    for msg in history:
+        messages_payload.append({
+            "role": msg.role,
+            "content": msg.content
+        })
 
+    if image_b64:
+        messages_payload[-1]["content"] = [
+            {"type": "text", "text": user_text if user_text else "What is in this image?"},
+            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}}
+        ]
 
-    API_KEY = os.getenv("OPENROUTER_API_KEY") 
-    API_URL = 'https://openrouter.ai/api/v1/chat/completions'
-
+    API_KEY = os.getenv("OPENROUTER_API_KEY")
     headers = {
         'Authorization': f'Bearer {API_KEY}',
         'Content-Type': 'application/json',
     }
+    
     payload = {
-        "model": "nex-agi/deepseek-v3.1-nex-n1:free", #deepseek/deepseek-r1-0528:free
-        "messages": [
-            {"role": "user", "content": user_message}
-        ]
+        "model": "google/gemma-3-4b-it:free",
+        "messages": messages_payload
     }
 
     try:
-        response = requests.post(API_URL, json=payload, headers=headers)
-
+        response = requests.post('https://openrouter.ai/api/v1/chat/completions', json=payload, headers=headers)
+        
         if response.status_code == 200:
             result = response.json()
             ai_reply = result['choices'][0]['message']['content']
             
-            new_ai_msg = Message(user_id=user_id, text=ai_reply, sender='ai')
-            db.session.add(new_ai_msg)
-            db.session.commit() 
+            ai_db_msg = ChatMessage(session_id=session_id, role='assistant', content=ai_reply)
+            db.session.add(ai_db_msg)
+            db.session.commit()
 
-            return jsonify({
-                "status": "success",
-                "reply": ai_reply
-            })
+            return jsonify({"status": "success", "id": ai_db_msg.id, "reply": ai_reply})
         else:
-            print(f"OpenRouter Error: {response.text}")
-            return jsonify({"error": f"API Error: {response.status_code}"}), response.status_code
+            return jsonify({"error": "AI Service Error"}), response.status_code
 
     except Exception as e:
-        print(f"System Error: {e}")
         return jsonify({"error": str(e)}), 500
 
 
-@app.route('/chat/examAnalyse', methods=['POST'])
+
+@app.route('/chat/history', methods=['GET'])
 @jwt_required()
-def anayseExam():
-    data_in = request.json
-    image_b64 = data_in.get("image")
-
-    if not image_b64:
-        return jsonify({"error": "No image provided"}), 400
+def get_chat_history():
+    user_id = get_jwt_identity()
+    sessions = ChatSession.query.filter_by(user_id=user_id).order_by(ChatSession.created_at.desc()).all()
     
-    instruction = "Analyze this exam paper. Identify all incorrect answers, explain why they are wrong, and provide the correct solutions. If there isnt exam paper on the image just say: Please import exam image! Also make the response correspond to the used language in the provided test!"
-
-    content_payload = [
-        {
-            "type": "text", 
-            "text": instruction
-        },
-        {
-            "type": "image_url",
-            "image_url": {
-                "url": f"data:image/jpeg;base64,{image_b64}"
-            }
-        }
-    ]
-
-    API_KEY = os.getenv("OPENROUTER_API_KEY")
-    API_URL = 'https://openrouter.ai/api/v1/chat/completions'
-    headers = {
-        'Authorization': f'Bearer {API_KEY}',
-        'Content-Type': 'application/json',
-    }
-
-    payload = {
-        "model": "google/gemma-3-4b-it:free", #nvidia/nemotron-nano-12b-v2-vl:free
-        "messages": [
-            {
-                "role": "user",
-                "content": content_payload
-            }
-        ]
-    }
-
-    try:
-        response = requests.post(API_URL, json=payload, headers=headers)
-
-        if response.status_code == 200:
-            result = response.json()
-            ai_reply = result['choices'][0]['message']['content']
-            print(ai_reply)
-            return jsonify({
-                "status": "success",
-                "reply": ai_reply
-            })
-        else:
-            return jsonify({"error": "AI Service Error", "details": response.text}), response.status_code
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
+    result = []
+    for s in sessions:
+        msgs = [{"id": m.id, "role": m.role, "content": m.content} for m in s.messages]
+        
+        result.append({"id": s.id, "title": s.title, "date": s.created_at.strftime("%Y-%m-%d"), "messages": msgs})
+    return jsonify(result)
 
 
 if __name__ == "__main__":
