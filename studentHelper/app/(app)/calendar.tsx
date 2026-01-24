@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { Calendar } from 'react-native-calendars';
 import { API_URL } from '../../config/api';
+import { useSession } from '../../ctx'
 
 type EventType = 'homework' | 'test' | 'project';
 
@@ -11,21 +13,28 @@ interface CalendarEvent {
 }
 
 export default function CalendarScreen() {
+  const { session } = useSession();
+  const [isScanning, setIsScanning] = useState(false);
   const [markedDates, setMarkedDates] = useState({});
   const [events, setEvents] = useState<Record<string, CalendarEvent[]>>({});
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [eventType, setEventType] = useState<EventType>('homework');
   const [description, setDescription] = useState('');
   const [showForm, setShowForm] = useState(false);
-
   // Fetch events from API
   useEffect(() => {
     fetchEvents();
-  }, []);
+  }, [session]);
 
   const fetchEvents = async () => {
     try {
-      const response = await fetch(`${API_URL}/events`);
+      const response = await fetch(`${API_URL}/events`, {
+        method: 'GET',
+        headers: {
+          'Content-Type':'application/json',
+          'Authorization': `Bearer ${session}`
+        }
+      });
       const data = await response.json();
       setEvents(data || {});
       updateMarkedDates(data || {});
@@ -33,6 +42,53 @@ export default function CalendarScreen() {
       console.error('Error fetching events:', error);
     }
   };
+
+
+
+  //AI scan
+  const handleAIScan = async () => {
+  const permission = await ImagePicker.requestCameraPermissionsAsync();
+  if (!permission.granted) {
+    Alert.alert('Permission Denied', 'We need camera access to scan your schedule.');
+    return;
+  }
+  const result = await ImagePicker.launchCameraAsync({
+    base64: true,
+    quality: 0.4,
+  });
+
+  if (!result.canceled && result.assets[0].base64) {
+    setIsScanning(true);
+    try {
+      const response = await fetch(`${API_URL}/chat/extract-events`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session}`,
+        },
+        body: JSON.stringify({ image: result.assets[0].base64 }),
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        Alert.alert('Success', `AI found and added ${data.events.length} events!`);
+        fetchEvents(); 
+      } else {
+        Alert.alert('AI Error', data.error || 'Could not process the image.');
+      }
+    } catch (err) {
+      Alert.alert('Network Error', 'Connection to server failed.');
+    } finally {
+      setIsScanning(false);
+    }
+  }
+};
+
+
+
+
+
 
   const updateMarkedDates = (eventsData: Record<string, CalendarEvent[]>) => {
     const marked: Record<string, any> = {};
@@ -81,6 +137,7 @@ export default function CalendarScreen() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session}`
         },
         body: JSON.stringify({
           date: selectedDate,
@@ -227,11 +284,58 @@ export default function CalendarScreen() {
           ))}
         </View>
       )}
+
+      {!showForm && (
+        <View style={styles.buttonRow}>
+          <TouchableOpacity 
+            style={[styles.actionButton, { backgroundColor: '#00adf5' }]} 
+            onPress={() => setShowForm(true)}
+          >
+            <Text style={styles.buttonText}>Manual Add</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.actionButton, { backgroundColor: '#6200ee' }]} 
+            onPress={handleAIScan}
+            disabled={isScanning}
+          >
+            {isScanning ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.buttonText}>Scan with AI</Text>
+      )}
+    </TouchableOpacity>
+  </View>
+)}
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
+  buttonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    marginTop: 20,
+    gap: 10,
+  },
+  actionButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: 'bold',
+  },
   container: {
     flex: 1,
     backgroundColor: '#fff',

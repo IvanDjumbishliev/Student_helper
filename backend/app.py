@@ -5,10 +5,11 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 from datetime import timedelta, timezone, datetime
-import os
-import base64
 from google import genai
 from google.genai import types
+import os
+import base64
+import json
 
 load_dotenv()
 
@@ -49,6 +50,7 @@ class Message(db.Model):
 
 class Event(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     date = db.Column(db.String(10), nullable=False)
     type = db.Column(db.String(20), nullable=False)
     description = db.Column(db.Text, nullable=False)
@@ -112,8 +114,10 @@ def login():
     return {"access_token": token}
 
 @app.route('/events', methods=['GET'])
+@jwt_required()
 def get_events():
-    events_from_db = Event.query.all()
+    current_user_id = get_jwt_identity()
+    events_from_db = Event.query.filter_by(user_id=current_user_id).all()
     events_by_date = {}
     
     for event in events_from_db:
@@ -128,7 +132,9 @@ def get_events():
     return jsonify(events_by_date)
 
 @app.route('/events', methods=['POST'])
+@jwt_required()
 def create_event():
+    current_user_id = get_jwt_identity()
     data = request.get_json()
     date = data.get("date")
     event_type = data.get("type")
@@ -140,8 +146,8 @@ def create_event():
     if event_type not in ["homework", "test", "project"]:
         return {"message": "Invalid event type"}, 400
 
-    # Create new event and save to database
     new_event = Event(
+        user_id=current_user_id,
         date=date,
         type=event_type,
         description=description
@@ -284,6 +290,71 @@ def get_chat_history():
         
         result.append({"id": s.id, "title": s.title, "date": s.created_at.strftime("%Y-%m-%d"), "messages": msgs})
     return jsonify(result)
+
+
+
+
+@app.post("/chat/extract-events")
+@jwt_required()
+def extract_events():
+    current_user_id = get_jwt_identity()
+    data_in = request.json
+    image_b64 = data_in.get("image")
+    
+    if not image_b64:
+        return jsonify({"error": "No image provided"}), 400
+
+    if "," in image_b64:
+        image_b64 = image_b64.split(",")[1]
+    image_data = base64.b64decode(image_b64.strip())
+
+    prompt = (
+        "Analyze this school-related image. Extract events and return them in a JSON format. "
+        "Rules: "
+        "1. 'date' must be in 'YYYY-MM-DD' format. "
+        "2. 'type' must be EXACTLY one of these strings: 'homework', 'test', 'project'. "
+        "3. 'description' should be a short Bulgarian summary of the task. "
+        "Format: {'events': [{'date': '...', 'type': '...', 'description': '...'}]}"
+    )
+
+    try:
+        response = client.models.generate_content(
+            model="gemini-flash-latest",
+            contents=[
+                types.Part.from_bytes(data=image_data, mime_type="image/jpeg"),
+                prompt
+            ],
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json"
+            )
+        )
+
+        extracted = json.loads(response.text)
+        added_events = []
+        print(extracted)
+        for item in extracted.get("events", []):
+            new_event = Event(
+                user_id=current_user_id,
+                date=item['date'],         
+                type=item['type'],      
+                description=item['description'] 
+            )
+            db.session.add(new_event)
+            added_events.append(item)
+
+        db.session.commit()
+
+        return jsonify({
+            "status": "success",
+            "message": f"Added {len(added_events)} events to your calendar",
+            "events": added_events
+        })
+
+    except Exception as e:
+        print(f"AI Extraction Error: {e}")
+        db.session.rollback()
+        return jsonify({"error": "Could not process image"}), 500
+
 
 
 if __name__ == "__main__":
