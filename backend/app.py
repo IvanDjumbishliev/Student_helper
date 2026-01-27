@@ -10,6 +10,7 @@ from google.genai import types
 import os
 import base64
 import json
+import re
 
 load_dotenv()
 
@@ -363,7 +364,60 @@ def extract_events():
         db.session.rollback()
         return jsonify({"error": "Could not process image"}), 500
 
+@app.route('/chat/generate-test', methods=['POST'])
+@jwt_required()
+def generate_test():
+    user_id = get_jwt_identity()
+    data = request.json
+    subject = data.get('subject', 'General Topic')
+    context = data.get('context', '')
 
+    if not context:
+        return jsonify({"error": "No study material provided"}), 400
+    
+    prompt = f"""
+    You are an expert teacher. Create a multiple-choice quiz based ONLY on the following study material.
+    
+    Subject: {subject}
+    Study Material: {context}
+
+    Return exactly 5 questions in valid JSON format. 
+    Each question must have:
+    - "question": the text of the question
+    - "options": an array of 4 possible answers
+    - "correct": the text of the correct answer (must match one of the options exactly)
+
+    Response format:
+    {{
+        "questions": [
+            {{
+                "question": "example",
+                "options": ["a", "b", "c", "d"],
+                "correct": "a"
+            }}
+        ]
+    }}
+    """
+
+    try:
+        response = client.models.generate_content(
+            model="gemini-flash-latest",
+            contents=prompt
+        )
+        
+        raw_text = response.text
+        json_match = re.search(r'\{.*\}', raw_text, re.DOTALL)
+        
+        if json_match:
+            quiz_data = json.loads(json_match.group())
+            print(jsonify(quiz_data))
+            return jsonify(quiz_data)
+        else:
+            return jsonify({"error": "AI returned invalid format"}), 500
+
+    except Exception as e:
+        print(f"Error generating test: {e}")
+        return jsonify({"error": "Failed to connect to AI"}), 500
 
 if __name__ == "__main__":
     with app.app_context():
