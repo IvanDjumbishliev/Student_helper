@@ -318,7 +318,7 @@ def extract_events():
     image_data = base64.b64decode(image_b64.strip())
 
     prompt = (
-        "Analyze this school-related image. Extract events and return them in a JSON format. "
+        "Analyze this school-related image. Extract events and return them in a JSON format. If the image is NOT a school schedule or contains no relevant tasks, return an empty list for 'events'!!!"
         "Rules: "
         "1. 'date' must be in 'YYYY-MM-DD' format. "
         "2. 'type' must be EXACTLY one of these strings: 'homework', 'test', 'project'. "
