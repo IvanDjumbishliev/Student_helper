@@ -401,6 +401,7 @@ def generate_test():
     data = request.json
     subject = data.get('subject', 'General Topic')
     context = data.get('context', '')
+    questionsCount = data.get('questionsCount')
 
     if not context:
         return jsonify({"error": "No study material provided"}), 400
@@ -411,7 +412,7 @@ def generate_test():
     Subject: {subject}
     Study Material: {context}
 
-    Return exactly 5 questions in valid JSON format. 
+    Return exactly {questionsCount} questions in valid JSON format. 
     Each question must have:
     - "question": the text of the question
     - "options": an array of 4 possible answers
@@ -440,7 +441,6 @@ def generate_test():
         
         if json_match:
             quiz_data = json.loads(json_match.group())
-            print(jsonify(quiz_data))
             return jsonify(quiz_data)
         else:
             return jsonify({"error": "AI returned invalid format"}), 500
@@ -460,7 +460,7 @@ def save_score():
     subject = data.get('subject')
     score_value = data.get('score')
     total = data.get('total') 
-    
+    print(total)
     new_entry = Score(
         user_id=user_id,
         subject=subject,
@@ -470,7 +470,6 @@ def save_score():
     
     db.session.add(new_entry)
     db.session.commit()
-    print(new_entry)
     return jsonify({"message": "Score saved!", "id": new_entry.id}), 201
 
 

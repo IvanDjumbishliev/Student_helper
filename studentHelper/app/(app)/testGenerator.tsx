@@ -20,6 +20,7 @@ export default function TestGeneratorScreen() {
   const [selectedTest, setSelectedTest] = useState<any>(null);
   const [context, setContext] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [numQuestions, setNumQuestions] = useState(5);
   
 
   const [quiz, setQuiz] = useState<any[] | null>(null);
@@ -64,7 +65,8 @@ export default function TestGeneratorScreen() {
         },
         body: JSON.stringify({ 
             subject: selectedTest.description,
-            context: context 
+            context: context,
+            questionsCount: numQuestions
         }),
       });
       const data = await response.json();
@@ -214,6 +216,27 @@ export default function TestGeneratorScreen() {
             value={context}
             onChangeText={setContext}
           />
+
+          <Text style={[styles.label, { marginTop: 20 }]}>Number of Questions:</Text>
+          <View style={styles.countRow}>
+            {[5, 7, 10].map((num) => (
+              <TouchableOpacity
+                key={num}
+                style={[
+                  styles.countBtn,
+                  numQuestions === num && styles.countBtnSelected
+                ]}
+                onPress={() => setNumQuestions(num)}
+              >
+                <Text style={[
+                  styles.countBtnText,
+                  numQuestions === num && styles.countBtnTextSelected
+                ]}>
+                  {num}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
           <TouchableOpacity 
             style={styles.generateBtn} 
             onPress={generateQuiz}
@@ -255,5 +278,31 @@ const styles = StyleSheet.create({
   resultCard: { alignItems: 'center', padding: 20, backgroundColor: '#fff', borderRadius: 24, marginBottom: 40 },
   scoreText: { fontSize: 32, fontWeight: '800', color: '#1e293b', marginBottom: 8 },
   scoreSubText: { fontSize: 16, color: '#64748b', marginBottom: 25, textAlign: 'center' },
-  resetBtn: { backgroundColor: '#334155', padding: 18, borderRadius: 16, width: '100%', alignItems: 'center' }
+  resetBtn: { backgroundColor: '#334155', padding: 18, borderRadius: 16, width: '100%', alignItems: 'center' },
+  countRow: {
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  marginBottom: 10,
+  },
+  countBtn: {
+    flex: 1,
+    backgroundColor: '#f1f5f9',
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginHorizontal: 5,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  countBtnSelected: {
+    backgroundColor: '#2563eb',
+    borderColor: '#2563eb',
+  },
+  countBtnText: {
+    fontWeight: '700',
+    color: '#64748b',
+  },
+  countBtnTextSelected: {
+    color: '#fff',
+  },
 });
