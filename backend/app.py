@@ -401,14 +401,19 @@ def generate_test():
     data = request.json
     subject = data.get('subject', 'General Topic')
     context = data.get('context', '')
-    questionsCount = data.get('questionsCount')
+    questionsCount = data.get('questionsCount', 5)
+    images = data.get('images', [])
 
-    if not context:
+    if not context and not images:
         return jsonify({"error": "No study material provided"}), 400
     
     prompt = f"""
     You are an expert teacher. Create a multiple-choice quiz based ONLY on the following study material.
-    
+
+    IMPORTANT: I have provided study materials as TEXT and/or IMAGES. 
+    Please analyze both carefully. If there are images (like handwritten notes or diagrams), 
+    prioritize the information found in them.
+
     Subject: {subject}
     Study Material: {context}
 
@@ -430,10 +435,30 @@ def generate_test():
     }}
     """
 
+    contents = [
+        types.Part.from_text(text=prompt)
+    ]
+
+    for img_base64 in images:
+        image_b64 = ''
+        if "," in img_base64:
+            image_b64 = img_base64.split(",")[1]
+        else:
+            image_b64 = img_base64
+            
+        image_data = base64.b64decode(image_b64.strip())
+            
+        contents.append(
+            types.Part.from_bytes(
+                data=image_data,
+                mime_type='image/jpeg'
+            )
+        )
+
     try:
         response = client.models.generate_content(
             model="gemini-flash-latest",
-            contents=prompt
+            contents=contents
         )
         
         raw_text = response.text

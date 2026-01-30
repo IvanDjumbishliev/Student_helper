@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
+import * as ImagePicker from 'expo-image-picker'
 import { 
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, 
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Image,
   TextInput, ActivityIndicator, Alert, Platform, StatusBar, KeyboardAvoidingView 
 } from 'react-native';
 import { useSession } from '../../ctx';
@@ -21,6 +22,7 @@ export default function TestGeneratorScreen() {
   const [context, setContext] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [numQuestions, setNumQuestions] = useState(5);
+  const [images, setImages] = useState<string[]>([]);
   
 
   const [quiz, setQuiz] = useState<any[] | null>(null);
@@ -52,8 +54,35 @@ export default function TestGeneratorScreen() {
     }
   };
 
+    const takePhoto = async () => {
+    if (images.length >= 2) {
+      return Alert.alert("Limit Reached", "You can upload a maximum of 2 images.");
+    }
+
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permission Denied', 'We need camera access to scan your notes.');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      base64: true,
+      quality: 0.4,
+    });
+
+    if (!result.canceled && result.assets[0].base64) {
+      setImages([...images, result.assets[0].base64]);
+    }
+  };
+
+  const removeImage = (index: number) => {
+    const newImages = [...images];
+    newImages.splice(index, 1);
+    setImages(newImages);
+  };  
+
   const generateQuiz = async () => {
-    if (!context.trim()) return Alert.alert("Context Required", "Please paste your study notes first.");
+    if (!context.trim() && images.length === 0) return Alert.alert("Context Required", "Please paste your study notes first.");
     
     setIsGenerating(true);
     try {
@@ -66,7 +95,8 @@ export default function TestGeneratorScreen() {
         body: JSON.stringify({ 
             subject: selectedTest.description,
             context: context,
-            questionsCount: numQuestions
+            questionsCount: numQuestions,
+            images: images
         }),
       });
       const data = await response.json();
@@ -111,6 +141,7 @@ export default function TestGeneratorScreen() {
     setScore(null);
     setSelectedTest(null);
     setContext('');
+    setImages([]);
     setUserAnswers({});
   };
 
@@ -217,6 +248,26 @@ export default function TestGeneratorScreen() {
             onChangeText={setContext}
           />
 
+          <Text style={[styles.label, { marginTop: 20 }]}>Capture Notes (Max 2):</Text>
+          <View style={styles.imageRow}>
+            {images.map((img, index) => (
+              <View key={index} style={styles.imagePreviewContainer}>
+                <Image source={{ uri: `data:image/jpeg;base64,${img}` }} style={styles.previewImage} />
+                <TouchableOpacity style={styles.removeImgBtn} onPress={() => removeImage(index)}>
+                  <Ionicons name="close-circle" size={24} color="#ef4444" />
+                </TouchableOpacity>
+              </View>
+            ))}
+            
+            {images.length < 2 && (
+              <TouchableOpacity style={styles.addImageBtn} onPress={takePhoto}>
+                <Ionicons name="camera" size={30} color="#64748b" />
+                <Text style={styles.addImageText}>Take Photo</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+
           <Text style={[styles.label, { marginTop: 20 }]}>Number of Questions:</Text>
           <View style={styles.countRow}>
             {[5, 7, 10].map((num) => (
@@ -304,5 +355,53 @@ const styles = StyleSheet.create({
   },
   countBtnTextSelected: {
     color: '#fff',
+  },
+  imageRow: { 
+    flexDirection: 'row', 
+    marginBottom: 15, 
+    gap: 12,
+    alignItems: 'center' 
+  },
+  imagePreviewContainer: { 
+    width: 90, 
+    height: 90, 
+    borderRadius: 15, 
+    overflow: 'hidden', 
+    position: 'relative',
+    backgroundColor: '#e2e8f0'
+  },
+  previewImage: { 
+    width: '100%', 
+    height: '100%',
+    resizeMode: 'cover'
+  },
+  removeImgBtn: { 
+    position: 'absolute', 
+    top: -2, 
+    right: -2, 
+    backgroundColor: '#fff', 
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 3
+  },
+  addImageBtn: { 
+    width: 90, 
+    height: 90, 
+    borderRadius: 15, 
+    borderWidth: 2, 
+    borderColor: '#cbd5e1', 
+    borderStyle: 'dashed', 
+    justifyContent: 'center', 
+    alignItems: 'center',
+    backgroundColor: '#f8fafc'
+  },
+  addImageText: { 
+    fontSize: 11, 
+    color: '#64748b', 
+    marginTop: 4, 
+    fontWeight: '600' 
   },
 });
