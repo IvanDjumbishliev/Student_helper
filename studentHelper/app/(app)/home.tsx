@@ -1,19 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Platform, StatusBar, ActivityIndicator
 } from 'react-native';
 import { useSession } from '../../ctx';
-import { router } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { API_URL } from '../../config/api';
-import { useCallback } from 'react';
-import { useFocusEffect } from 'expo-router';
+import Animated, { FadeInDown, FadeInRight, ZoomIn } from 'react-native-reanimated';
 
 const TOP_PADDING = Platform.OS === 'ios' ? 60 : (StatusBar.currentHeight || 0) + 10;
 
 export default function HomePage() {
   const { signOut, session } = useSession();
+  const router = useRouter();
   const [upcomingEvents, setUpcomingEvents] = useState<any[]>([]);
   const [scores, setScores] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -91,8 +91,8 @@ export default function HomePage() {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      <Animated.View entering={FadeInDown.duration(600).springify()} style={styles.header}>
         <View>
           <Text style={styles.greeting}>Welcome Back!</Text>
           <Text style={styles.subGreeting}>You have {upcomingEvents.length} upcoming tasks.</Text>
@@ -100,9 +100,9 @@ export default function HomePage() {
         <TouchableOpacity style={styles.logoutBtn} onPress={handleSignOut}>
           <Ionicons name="log-out-outline" size={22} color="#ef4444" />
         </TouchableOpacity>
-      </View>
+      </Animated.View>
 
-      <View style={styles.mainCard}>
+      <Animated.View entering={ZoomIn.duration(500).delay(100)} style={styles.mainCard}>
         <Text style={styles.cardLabel}>NEXT DEADLINE</Text>
         {loading ? (
           <ActivityIndicator color="#fff" style={{ marginVertical: 20 }} />
@@ -111,27 +111,32 @@ export default function HomePage() {
             <Text style={styles.countdownDays}>
               {upcomingEvents[0].daysLeft === 0 ? "TODAY" : `${upcomingEvents[0].daysLeft} Days`}
             </Text>
-            <Text style={styles.countdownTarget}>{upcomingEvents[0].description}</Text>
+            <Text style={styles.countdownTarget} numberOfLines={1}>{upcomingEvents[0].description}</Text>
           </>
         ) : (
           <Text style={styles.countdownTarget}>All caught up!</Text>
         )}
-      </View>
+      </Animated.View>
 
-      <View style={styles.actionGrid}>
+      <Animated.View entering={FadeInRight.duration(500).delay(200)} style={styles.actionGrid}>
         <TouchableOpacity style={styles.actionBtn} onPress={() => router.push('/AiChat')}>
           <Ionicons name="chatbubble-ellipses" size={24} color="#2563eb" />
           <Text style={styles.actionText}>Ask AI</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.actionBtn} onPress={() => router.push({ pathname: '/schoolwork', params: { mode: 'create' } })}>
+          <Ionicons name="sparkles" size={24} color="#8b5cf6" />
+          <Text style={styles.actionText}>Analysis</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.actionBtn} onPress={() => router.push('/calendar')}>
           <Ionicons name="calendar" size={24} color="#10b981" />
           <Text style={styles.actionText}>Calendar</Text>
         </TouchableOpacity>
-      </View>
+      </Animated.View>
 
       {recents.length > 0 && (
-        <View style={styles.section}>
+        <Animated.View entering={FadeInRight.duration(600).delay(300)} style={styles.section}>
           <Text style={styles.sectionTitle}>Recent Insights</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingLeft: 20 }}>
             {recents.map((item, i) => (
@@ -152,26 +157,26 @@ export default function HomePage() {
             ))}
             <View style={{ width: 40 }} />
           </ScrollView>
-        </View>
+        </Animated.View>
       )}
 
-      <View style={styles.listSection}>
+      <Animated.View entering={FadeInDown.duration(600).delay(400)} style={styles.listSection}>
         <Text style={styles.sectionTitle}>Agenda</Text>
         {upcomingEvents.slice(1, 4).map((item, index) => (
-          <View key={index} style={styles.listItem}>
+          <Animated.View key={index} entering={FadeInDown.delay(index * 100 + 500)} style={styles.listItem}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.itemTitle}>{item.description}</Text>
+              <Text style={styles.itemTitle} numberOfLines={1}>{item.description}</Text>
               <Text style={styles.itemDate}>{item.date}</Text>
             </View>
             <View style={styles.daysTag}>
               <Text style={styles.daysTagText}>{item.daysLeft}d</Text>
             </View>
-          </View>
+          </Animated.View>
         ))}
-      </View>
+      </Animated.View>
 
 
-      <View style={styles.scoreSection}>
+      <Animated.View entering={FadeInDown.duration(600).delay(600)} style={styles.scoreSection}>
         <Text style={styles.sectionTitle}>Performance</Text>
         <View style={styles.scoreCard}>
           <View style={styles.scoreItem}>
@@ -185,7 +190,7 @@ export default function HomePage() {
             <Text style={styles.scoreLabel}>Avg. Accuracy</Text>
           </View>
         </View>
-      </View>
+      </Animated.View>
       <View style={{ height: 40 }} />
     </ScrollView>
   );
@@ -203,7 +208,7 @@ const styles = StyleSheet.create({
   countdownTarget: { color: '#fff', fontSize: 18 },
   actionGrid: { flexDirection: 'row', paddingHorizontal: 20, gap: 15 },
   actionBtn: { flex: 1, backgroundColor: '#fff', padding: 20, borderRadius: 20, alignItems: 'center', elevation: 2 },
-  actionText: { marginTop: 8, fontWeight: '600', color: '#1e293b' },
+  actionText: { marginTop: 8, fontWeight: '600', color: '#1e293b', fontSize: 12 },
   section: { marginTop: 25 },
   listSection: { paddingHorizontal: 20, paddingVertical: 10, marginTop: 10 },
   sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#1e293b', marginBottom: 15, paddingHorizontal: 20 },
