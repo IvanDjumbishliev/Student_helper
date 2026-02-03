@@ -7,12 +7,14 @@ import { useSession } from '../../ctx'
 import { Platform, StatusBar } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInDown, ZoomIn, FadeInRight, Layout } from 'react-native-reanimated';
+import { useStorageState } from '../../useStorageState';
 
 const TOP_PADDING = Platform.OS === 'ios' ? 60 : (StatusBar.currentHeight || 0) + 10;
 
 type EventType = 'homework' | 'test' | 'project';
 
 interface CalendarEvent {
+  id: number;
   type: EventType;
   description: string;
 }
@@ -26,6 +28,10 @@ export default function CalendarScreen() {
   const [eventType, setEventType] = useState<EventType>('homework');
   const [description, setDescription] = useState('');
   const [showForm, setShowForm] = useState(false);
+
+  const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
+  const [editingDate, setEditingDate] = useState<string | null>(null);
+  const [notificationDaysState, setNotificationDays] = useStorageState('notificationDays');
   // Fetch events from API
   useEffect(() => {
     fetchEvents();
@@ -102,6 +108,7 @@ export default function CalendarScreen() {
                 'Authorization': `Bearer ${session}`
               },
               body: JSON.stringify({
+                id: eventToDelete.id,
                 date: selectedDate,
                 description: eventToDelete.description
               }),
@@ -109,6 +116,13 @@ export default function CalendarScreen() {
 
             if (response.ok) {
               fetchEvents();
+              // Reset editing state if we deleted the event being edited
+              if (editingEvent?.id === eventToDelete.id) {
+                setEditingEvent(null);
+                setEditingDate(null);
+                setDescription('');
+                setShowForm(false);
+              }
             } else {
               Alert.alert('Error', 'Failed to delete event');
             }
@@ -154,6 +168,8 @@ export default function CalendarScreen() {
 
   const handleAddEvent = async () => {
     // Check if selected date is in the past
+    // However, allow editing an event even if it was in the past or moves to past? 
+    // Usually strict "no past events" might be annoying for edits, but keeping logic consistent.
     const today = new Date().toISOString().split('T')[0];
     if (selectedDate < today) {
       Alert.alert('Error', 'You cannot add events to past dates');
@@ -166,6 +182,26 @@ export default function CalendarScreen() {
     }
 
     try {
+      // If editing, delete the old event first
+      if (editingEvent && editingDate) {
+        const deleteRes = await fetch(`${API_URL}/events/delete`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session}`
+          },
+          body: JSON.stringify({
+            id: editingEvent.id,
+            date: editingDate, // Use the original date of the event being edited
+            description: editingEvent.description
+          }),
+        });
+
+        if (!deleteRes.ok) {
+          throw new Error('Failed to update (delete old) event');
+        }
+      }
+
       const response = await fetch(`${API_URL}/events`, {
         method: 'POST',
         headers: {
@@ -181,16 +217,34 @@ export default function CalendarScreen() {
 
       if (response.ok) {
         setDescription('');
+        setEditingEvent(null);
+        setEditingDate(null);
         setShowForm(false);
         fetchEvents();
-        Alert.alert('Success', 'Event added successfully');
+        Alert.alert('Success', `Event ${editingEvent ? 'updated' : 'added'} successfully`);
       } else {
-        Alert.alert('Error', 'Failed to add event');
+        Alert.alert('Error', `Failed to ${editingEvent ? 'update' : 'add'} event`);
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to add event');
+      Alert.alert('Error', `Failed to ${editingEvent ? 'update' : 'add'} event`);
       console.error('Error adding event:', error);
     }
+  };
+
+  const handleEdit = (event: CalendarEvent) => {
+    setEditingEvent(event);
+    setEditingDate(selectedDate); // Capture current selected date as original
+    setDescription(event.description);
+    setEventType(event.type);
+    setShowForm(true);
+  };
+
+  const handleCloseForm = () => {
+    setShowForm(false);
+    setEditingEvent(null);
+    setEditingDate(null);
+    setDescription('');
+    setEventType('homework');
   };
 
   const handleDateSelect = (day: any) => {
@@ -247,7 +301,7 @@ export default function CalendarScreen() {
       </Animated.View>
 
       {!showForm && (
-        <TouchableOpacity style={styles.addButtonContainer} onPress={() => setShowForm(true)}>
+        <TouchableOpacity style={styles.addButtonContainer} onPress={() => { setEditingEvent(null); setEditingDate(null); setShowForm(true); }}>
           <Text style={styles.addButtonContainerText}>Add Event</Text>
         </TouchableOpacity>
       )}
@@ -293,12 +347,14 @@ export default function CalendarScreen() {
           />
 
           <TouchableOpacity style={styles.submitButton} onPress={handleAddEvent}>
-            <Text style={styles.submitButtonText}>Save</Text>
+            <Text style={styles.submitButtonText}>{editingEvent ? 'Update Event' : 'Save Event'}</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.cancelButton} onPress={() => setShowForm(false)}>
+          <TouchableOpacity style={styles.cancelButton} onPress={handleCloseForm}>
             <Text style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
+
+
         </Animated.View>
       )}
 
@@ -307,7 +363,7 @@ export default function CalendarScreen() {
           <Text style={styles.eventsTitle}>Events for {selectedDate}:</Text>
           {dayEvents.map((event, index) => (
             <Animated.View
-              key={index}
+              key={event.id}
               entering={FadeInRight.delay(index * 100).springify()}
               layout={Layout.springify()}
               style={[
@@ -315,11 +371,17 @@ export default function CalendarScreen() {
                 { borderLeftColor: getEventColor(event.type) },
               ]}
             >
-              <Text style={styles.eventType}>{event.type.toUpperCase()}</Text>
-              <Text style={styles.eventDescription}>{event.description}</Text>
-              <TouchableOpacity onPress={() => handleDeleteEvent(event)} style={styles.deleteButton}>
-                <Ionicons name="trash-outline" size={20} color="#ef4444" />
-              </TouchableOpacity>
+              <View style={styles.eventContent}>
+                <View style={styles.eventTextContainer}>
+                  <Text style={[styles.eventType, { color: getEventColor(event.type) }]}>{event.type.toUpperCase()}</Text>
+                  <Text style={styles.eventDescription}>{event.description}</Text>
+                </View>
+                <View style={styles.eventActions}>
+                  <TouchableOpacity onPress={() => handleEdit(event)} style={styles.actionIconButton}>
+                    <Ionicons name="pencil" size={20} color="#666" />
+                  </TouchableOpacity>
+                </View>
+              </View>
             </Animated.View>
           ))}
         </View>
@@ -329,7 +391,7 @@ export default function CalendarScreen() {
         <Animated.View entering={FadeInDown.delay(300)} style={styles.buttonRow}>
           <TouchableOpacity
             style={[styles.actionButton, { backgroundColor: '#00adf5' }]}
-            onPress={() => setShowForm(true)}
+            onPress={() => { setEditingEvent(null); setEditingDate(null); setShowForm(true); }}
           >
             <Text style={styles.buttonText}>Manual Add</Text>
           </TouchableOpacity>
@@ -494,31 +556,48 @@ const styles = StyleSheet.create({
   },
   eventItem: {
     backgroundColor: '#fff',
-    padding: 12,
-    borderRadius: 6,
-    marginBottom: 10,
-    borderLeftWidth: 4,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    elevation: 2
-  },
-  eventType: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    marginBottom: 5,
-    color: '#666',
-  },
-  eventDescription: {
-    fontSize: 14,
-    color: '#333',
-    flex: 1,
-    marginRight: 10
+    borderRadius: 12,
+    marginBottom: 12,
+    borderLeftWidth: 5,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    padding: 0, // Reset padding to handle inner views
+    overflow: 'hidden'
   },
   eventContent: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+  },
+  eventTextContainer: {
+    flex: 1,
+    marginRight: 10,
+  },
+  eventType: {
+    fontSize: 11,
+    fontWeight: '800',
+    marginBottom: 4,
+    letterSpacing: 0.5,
+  },
+  eventDescription: {
+    fontSize: 15,
+    color: '#2d3748',
+    fontWeight: '500',
+    lineHeight: 20,
+  },
+  eventActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  actionIconButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: '#f7fafc',
   },
   deleteButton: {
     padding: 8,

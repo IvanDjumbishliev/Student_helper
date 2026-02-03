@@ -177,26 +177,39 @@ def delete_event():
     current_user_id = get_jwt_identity()
     data = request.get_json()
 
+    event_id = data.get('id')
     date = data.get('date')
     description = data.get('description')
 
-    if not date or not description:
-        return jsonify({"error": "Missing date or description"}), 400
-    
-    event_to_delete = Event.query.filter_by(
-        user_id=current_user_id,
-        date=date,
-        description=description
-    ).first()
+    print(f"DELETE REQUEST: id={event_id}, date={date}, desc={description}")
+
+    event_to_delete = None
+
+    if event_id:
+        print(f"Attempting delete by ID: {event_id}")
+        event_to_delete = Event.query.filter_by(id=event_id, user_id=current_user_id).first()
+    elif date and description:
+        print(f"Attempting delete by Date/Desc (Fallback): {date}, {description}")
+        event_to_delete = Event.query.filter_by(
+            user_id=current_user_id,
+            date=date,
+            description=description
+        ).first()
+    else:
+        print("Missing deletion criteria")
+        return jsonify({"error": "Missing event ID, or date and description"}), 400
 
     if not event_to_delete:
+        print("Event not found in DB")
         return jsonify({"error": "Event not found"}), 404
     
     try:
+        print(f"Deleting event: {event_to_delete.id}")
         db.session.delete(event_to_delete)
         db.session.commit()
         return jsonify({"success": True, "message": "Event deleted"}), 200
     except Exception as e:
+        print(f"Delete Exception: {e}")
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
