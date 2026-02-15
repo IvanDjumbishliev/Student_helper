@@ -34,6 +34,7 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(128), nullable=False)
+    profile_pic = db.Column(db.Text, nullable=True) # Base64 encoded image
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -222,7 +223,23 @@ def get_current_user():
     if not user:
         return {"message": "User not found"}, 404
 
-    return {"id": user.id,"email": user.email}
+    return {"id": user.id,"email": user.email, "profile_pic": user.profile_pic}
+
+@app.post("/auth/update_profile_pic")
+@jwt_required()
+def update_profile_pic():
+    user_id = get_jwt_identity()
+    user = db.session.get(User, user_id)
+    if not user:
+        return {"message": "User not found"}, 404
+
+    data = request.get_json()
+    profile_pic = data.get("profile_pic")
+    
+    user.profile_pic = profile_pic
+    db.session.commit()
+    
+    return {"message": "Profile picture updated successfully"}
 
 
 

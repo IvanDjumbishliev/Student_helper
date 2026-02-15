@@ -5,6 +5,8 @@ import { API_URL } from '../../config/api';
 import Animated, { FadeInDown, FadeInRight } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as ImagePicker from 'expo-image-picker';
+import { Image } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
@@ -28,6 +30,8 @@ export default function Profile() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [profilePic, setProfilePic] = useState<string | null>(null);
   const [stats, setStats] = useState<Stats>({ total_tests: 0, avg_percentage: 0, total_analyses: 0, total_events: 0 });
   const [activities, setActivities] = useState<Activity[]>([]);
 
@@ -39,7 +43,10 @@ export default function Profile() {
       // 1. Fetch User Info
       const infoRes = await fetch(`${API_URL}/auth/myInfo`, { headers });
       const infoData = await infoRes.json();
-      if (infoRes.ok) setEmail(infoData.email);
+      if (infoRes.ok) {
+        setEmail(infoData.email);
+        setProfilePic(infoData.profile_pic);
+      }
 
       // 2. Fetch Stats
       const statsRes = await fetch(`${API_URL}/recent-scores`, { headers });
@@ -106,6 +113,48 @@ export default function Profile() {
     }
   };
 
+  const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Denied', 'We need camera roll permissions to change your profile picture.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.5,
+      base64: true,
+    });
+
+    if (!result.canceled && result.assets[0].base64) {
+      const base64Image = `data:image/jpeg;base64,${result.assets[0].base64}`;
+      setUploading(true);
+      try {
+        const res = await fetch(`${API_URL}/auth/update_profile_pic`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session}`,
+          },
+          body: JSON.stringify({ profile_pic: base64Image }),
+        });
+
+        if (res.ok) {
+          setProfilePic(base64Image);
+          Alert.alert('Success', 'Profile picture updated successfully');
+        } else {
+          throw new Error('Upload failed');
+        }
+      } catch (err) {
+        Alert.alert('Error', 'Failed to upload profile picture');
+      } finally {
+        setUploading(false);
+      }
+    }
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -118,9 +167,22 @@ export default function Profile() {
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <LinearGradient colors={['#4f46e5', '#3730a3']} style={styles.header}>
         <Animated.View entering={FadeInDown.duration(600)} style={styles.headerContent}>
-          <View style={styles.avatarContainer}>
-            <Ionicons name="person" size={40} color="#4f46e5" />
-          </View>
+          <TouchableOpacity
+            style={styles.avatarContainer}
+            onPress={pickImage}
+            disabled={uploading}
+          >
+            {uploading ? (
+              <ActivityIndicator color="#4f46e5" />
+            ) : profilePic ? (
+              <Image source={{ uri: profilePic }} style={styles.avatarImage} />
+            ) : (
+              <Ionicons name="person" size={40} color="#4f46e5" />
+            )}
+            <View style={styles.editIconContainer}>
+              <Ionicons name="camera" size={16} color="#fff" />
+            </View>
+          </TouchableOpacity>
           <Text style={styles.userEmail}>{email}</Text>
           <Text style={styles.userBadge}>Scholar Plan</Text>
         </Animated.View>
@@ -236,6 +298,25 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 10,
     elevation: 5,
+    position: 'relative',
+  },
+  avatarImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+  },
+  editIconContainer: {
+    position: 'absolute',
+    right: -2,
+    bottom: -2,
+    backgroundColor: '#4f46e5',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#fff',
   },
   userEmail: {
     fontSize: 20,
