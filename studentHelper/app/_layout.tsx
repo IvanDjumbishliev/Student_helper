@@ -1,13 +1,11 @@
 import { Stack } from 'expo-router';
 
 import { SessionProvider, useSession } from '../ctx';
-import { SplashScreenController } from './splash';
 
 export default function Root() {
  
   return (
     <SessionProvider>
-      <SplashScreenController />
       <RootNavigator />
     </SessionProvider>
   );
