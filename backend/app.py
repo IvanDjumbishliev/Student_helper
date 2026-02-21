@@ -14,6 +14,8 @@ import os
 import base64
 import json
 import re
+import chromadb
+from chromadb.utils import embedding_functions
 
 load_dotenv()
 
@@ -35,7 +37,9 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
 db = SQLAlchemy(app)
 jwt = JWTManager(app)
 
-
+chroma_client = chromadb.PersistentClient(path="./chroma_db")
+sentence_transformer_ef = embedding_functions.SentenceTransformerEmbeddingFunction(model_name="all-MiniLM-L6-v2")
+collection = chroma_client.get_or_create_collection(name="user_events", embedding_function=sentence_transformer_ef)
 
 
 @app.errorhandler(Exception)
@@ -176,6 +180,13 @@ def create_event():
     try:
         db.session.add(new_event)
         db.session.commit()
+
+        collection.add(
+            ids=[str(new_event.id)],
+            documents=[f"Date: {new_event.date}, Task: {new_event.description}"],
+            metadatas=[{"user_id": int(current_user_id)}]
+        )
+
         return {
             "message": "Event created successfully",
             "data": {
@@ -226,6 +237,9 @@ def delete_event():
         print(f"Deleting event: {event_to_delete.id}")
         db.session.delete(event_to_delete)
         db.session.commit()
+
+        collection.delete(ids=[str(event_to_delete.id)])
+
         return jsonify({"success": True, "message": "Event deleted"}), 200
     except Exception as e:
         print(f"Delete Exception: {e}")
@@ -317,6 +331,15 @@ def handle_chat():
             gemini_history.append(
                 types.Content(role=role, parts=[types.Part.from_text(text=msg.content)])
             )
+    context = ""
+    if user_text:
+        search_results = collection.query(
+            query_texts=[user_text], 
+            n_results=3, 
+            where={"user_id": int(user_id)} 
+        )
+        if search_results['documents'] and search_results['documents'][0]:
+            context = "\nRelevant context from your calendar:\n" + "\n".join(search_results['documents'][0])
 
     current_parts = []
     if user_text:
@@ -336,8 +359,8 @@ def handle_chat():
         chat = client.chats.create(
             model="gemini-flash-latest",
             config=types.GenerateContentConfig(
-                system_instruction="""
-                You are a helpful student assistant. 
+                system_instruction=f"""
+                You are a helpful student assistant. Use this info to help the user: {context}
                 IMPORTANT: Always format mathematical formulas using standard Markdown code blocks or inline backticks. 
                 Example: `x = y^2`. 
                 Strictly avoid using LaTeX symbols like $, $$, or \[ \]. 
@@ -427,6 +450,12 @@ def extract_events():
                 description=item['description'] 
             )
             db.session.add(new_event)
+
+            collection.add(
+                ids=[str(new_event.id)],
+                documents=[f"Date: {item['date']}, Type: {item['type']}, Task: {item['description']}"],
+                metadatas=[{"user_id": int(current_user_id)}]
+            )
             added_events.append(item)
 
         db.session.commit()
@@ -748,5 +777,14 @@ def get_schoolwork_detail(id):
 with app.app_context():
     db.create_all() 
 
+    if collection.count() == 0:
+        print("Vector DB empty. Re-indexing existing events...")
+        all_events = Event.query.all()
+        if all_events:
+            collection.add(
+                ids=[str(e.id) for e in all_events],
+                documents=[f"Date: {e.date}, Task: {e.description}" for e in all_events],
+                metadatas=[{"user_id": int(e.user_id)} for e in all_events]
+            )
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
