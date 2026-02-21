@@ -310,6 +310,10 @@ def handle_chat():
     image_b64 = data_in.get("image")
     user_text = data_in.get("message", "").strip()
 
+    now = datetime.now(timezone.utc)
+    today_str = now.strftime("%Y-%m-%d")
+    day_name = now.strftime("%A")
+
     if not user_text and not image_b64:
         return jsonify({"error": "Empty message"}), 400
 
@@ -372,7 +376,11 @@ def handle_chat():
             model="gemini-flash-latest",
             config=types.GenerateContentConfig(
                 system_instruction=f"""
-                You are a helpful student assistant. Use this info to help the user: {context}
+                You are a helpful student assistant. 
+
+                TODAY'S DATE: {today_str} ({day_name}).
+                
+                Use this info to help the user: {context}.
                 IMPORTANT: Always format mathematical formulas using standard Markdown code blocks or inline backticks. 
                 Example: `x = y^2`. 
                 Strictly avoid using LaTeX symbols like $, $$, or \[ \]. 
