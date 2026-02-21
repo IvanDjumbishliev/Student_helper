@@ -76,8 +76,6 @@ const CustomTabBar = ({ state, descriptors, navigation }: BottomTabBarProps) => 
 
 const styles = StyleSheet.create({
     container: {
-        position: 'absolute',
-        bottom: 0,
         width: width,
         paddingHorizontal: 15,
         paddingBottom: 25,
