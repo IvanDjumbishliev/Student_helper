@@ -40,6 +40,7 @@ jwt = JWTManager(app)
 chroma_client = chromadb.PersistentClient(path="./chroma_db")
 sentence_transformer_ef = embedding_functions.SentenceTransformerEmbeddingFunction(model_name="all-MiniLM-L6-v2")
 collection = chroma_client.get_or_create_collection(name="user_events", embedding_function=sentence_transformer_ef)
+chat_collection = chroma_client.get_or_create_collection(name="chat_history", embedding_function=sentence_transformer_ef)
 
 
 @app.errorhandler(Exception)
@@ -184,7 +185,7 @@ def create_event():
         collection.add(
             ids=[str(new_event.id)],
             documents=[f"Date: {new_event.date}, Task: {new_event.description}"],
-            metadatas=[{"user_id": int(current_user_id)}]
+            metadatas=[{"user_id": str(current_user_id)}]
         )
 
         return {
@@ -302,7 +303,7 @@ client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 @app.route('/chat/message', methods=['POST'])
 @jwt_required()
 def handle_chat():
-    user_id = get_jwt_identity()
+    user_id = str(get_jwt_identity())
     data_in = request.json
     
     session_id = data_in.get("session_id")
@@ -318,28 +319,39 @@ def handle_chat():
         chat_session = ChatSession(id=session_id, user_id=user_id, title=title_preview)
         db.session.add(chat_session)
 
+    gemini_history = []
+
+    if user_text:
+        history_results = chat_collection.query(
+            query_texts=[user_text],
+            n_results = 4,
+            where = {"user_id":user_id}
+        )
+        if history_results['documents'] and history_results['documents'][0]:
+            for doc, meta in zip(history_results['documents'][0], history_results['metadatas'][0]):
+                role = "user" if meta['role'] == "user" else "model"
+                gemini_history.append(types.Content(role=role, parts=[types.Part.from_text(text=doc)]))
+
     user_db_msg = ChatMessage(session_id=session_id, role='user', content=user_text)
     db.session.add(user_db_msg)
-    db.session.commit()
+    db.session.flush()
 
-    history_msgs = ChatMessage.query.filter_by(session_id=session_id).order_by(ChatMessage.created_at.desc()).limit(10).all()
-    
-    gemini_history = []
-    for msg in history_msgs[:-1]:
-        if msg.content and msg.content.strip():
-            role = "user" if msg.role == "user" else "model"
-            gemini_history.append(
-                types.Content(role=role, parts=[types.Part.from_text(text=msg.content)])
-            )
+    chat_collection.add(
+        ids=[str(chat_session.id) + "_" + str(user_db_msg.id)],
+        documents=[user_text],
+        metadatas=[{"role":"user", "user_id":str(user_id)}]
+    )
+
     context = ""
     if user_text:
         search_results = collection.query(
             query_texts=[user_text], 
             n_results=3, 
-            where={"user_id": int(user_id)} 
+            where={"user_id": str(user_id)} 
         )
         if search_results['documents'] and search_results['documents'][0]:
             context = "\nRelevant context from your calendar:\n" + "\n".join(search_results['documents'][0])
+            print(context)
 
     current_parts = []
     if user_text:
@@ -374,6 +386,13 @@ def handle_chat():
         
         ai_db_msg = ChatMessage(session_id=session_id, role='assistant', content=ai_reply)
         db.session.add(ai_db_msg)
+        db.session.flush()
+        chat_collection.add(
+            ids=[str(chat_session.id) + "_" + str(ai_db_msg.id) + "1"],
+            documents=[ai_db_msg.content],
+            metadatas=[{"role":"ai", "user_id":str(user_id)}]
+        )
+
         db.session.commit()
 
         return jsonify({
@@ -454,7 +473,7 @@ def extract_events():
             collection.add(
                 ids=[str(new_event.id)],
                 documents=[f"Date: {item['date']}, Type: {item['type']}, Task: {item['description']}"],
-                metadatas=[{"user_id": int(current_user_id)}]
+                metadatas=[{"user_id": str(current_user_id)}]
             )
             added_events.append(item)
 
@@ -784,7 +803,7 @@ with app.app_context():
             collection.add(
                 ids=[str(e.id) for e in all_events],
                 documents=[f"Date: {e.date}, Task: {e.description}" for e in all_events],
-                metadatas=[{"user_id": int(e.user_id)} for e in all_events]
+                metadatas=[{"user_id": str(e.user_id)} for e in all_events]
             )
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
