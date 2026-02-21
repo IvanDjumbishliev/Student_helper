@@ -1,13 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Alert, ActivityIndicator, Platform, StatusBar } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Calendar } from 'react-native-calendars';
 import { API_URL } from '../../config/api';
-import { useSession } from '../../ctx'
-import { Platform, StatusBar } from 'react-native';
+import { useSession } from '../../ctx';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInDown, ZoomIn, FadeInRight, Layout } from 'react-native-reanimated';
-import { useStorageState } from '../../useStorageState';
 
 const TOP_PADDING = Platform.OS === 'ios' ? 60 : (StatusBar.currentHeight || 0) + 10;
 
@@ -28,11 +26,9 @@ export default function CalendarScreen() {
   const [eventType, setEventType] = useState<EventType>('homework');
   const [description, setDescription] = useState('');
   const [showForm, setShowForm] = useState(false);
-
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [editingDate, setEditingDate] = useState<string | null>(null);
-  const [notificationDaysState, setNotificationDays] = useStorageState('notificationDays');
-  // Fetch events from API
+
   useEffect(() => {
     fetchEvents();
   }, [session]);
@@ -50,15 +46,32 @@ export default function CalendarScreen() {
       setEvents(data || {});
       updateMarkedDates(data || {});
     } catch (error) {
-      console.error('Error fetching events:', error);
+      console.error(error);
     }
   };
 
+  const updateMarkedDates = (eventsData: Record<string, CalendarEvent[]>) => {
+    const marked: Record<string, any> = {};
+    Object.keys(eventsData).forEach(date => {
+      const dayEvents = eventsData[date];
+      let dotColor = '#4A90E2';
+      if (dayEvents.some(e => e.type === 'test')) dotColor = '#FF6B6B';
+      else if (dayEvents.some(e => e.type === 'project')) dotColor = '#FFA500';
+      marked[date] = { marked: true, dotColor };
+    });
+    marked[selectedDate] = {
+      ...marked[selectedDate],
+      selected: true,
+      selectedColor: '#00adf5',
+    };
+    setMarkedDates(marked);
+  };
 
   const handleAIScan = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert('Permission Denied', 'We need camera access to scan your schedule.');
+      if (Platform.OS === 'web') alert('Camera access required.');
+      else Alert.alert('Permission Denied', 'Camera access required.');
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
@@ -77,114 +90,64 @@ export default function CalendarScreen() {
           },
           body: JSON.stringify({ image: result.assets[0].base64 }),
         });
-
-        const data = await response.json();
-
         if (response.ok) {
-          Alert.alert('Success', `AI found and added ${data.events.length} events!`);
           fetchEvents();
-        } else {
-          Alert.alert('AI Error', data.error || 'Could not process the image.');
         }
       } catch (err) {
-        Alert.alert('Network Error', 'Connection to server failed.');
+        console.error(err);
       } finally {
         setIsScanning(false);
       }
     }
   };
 
-
-  const handleDeleteEvent = async (eventToDelete: CalendarEvent) => {
-    Alert.alert("Delete Event", "Are you sure you want to remove this event?",
-      [{ text: "Cancel", style: "cancel" }, {
-        text: "Delete", style: "destructive",
-        onPress: async () => {
-          try {
-            const response = await fetch(`${API_URL}/events/delete`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${session}`
-              },
-              body: JSON.stringify({
-                id: eventToDelete.id,
-                date: selectedDate,
-                description: eventToDelete.description
-              }),
-            });
-
-            if (response.ok) {
-              fetchEvents();
-              // Reset editing state if we deleted the event being edited
-              if (editingEvent?.id === eventToDelete.id) {
-                setEditingEvent(null);
-                setEditingDate(null);
-                setDescription('');
-                setShowForm(false);
-              }
-            } else {
-              Alert.alert('Error', 'Failed to delete event');
-            }
-          } catch (error) {
-            Alert.alert('Error', 'Connection error');
-          }
-        }
+  const processDeletion = async (eventToDelete: CalendarEvent) => {
+    try {
+      const response = await fetch(`${API_URL}/events/delete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session}`
+        },
+        body: JSON.stringify({
+          id: eventToDelete.id,
+          date: selectedDate,
+          description: eventToDelete.description
+        }),
+      });
+      if (response.ok) {
+        fetchEvents();
+        if (editingEvent?.id === eventToDelete.id) handleCloseForm();
       }
-      ]
-    );
+    } catch (error) {
+      console.error(error);
+    }
   };
 
-
-
-  const updateMarkedDates = (eventsData: Record<string, CalendarEvent[]>) => {
-    const marked: Record<string, any> = {};
-    Object.keys(eventsData).forEach(date => {
-      const dayEvents = eventsData[date];
-      let dotColor = 'blue';
-
-      // Color based on event type
-      if (dayEvents.some(e => e.type === 'test')) {
-        dotColor = 'red';
-      } else if (dayEvents.some(e => e.type === 'project')) {
-        dotColor = 'orange';
-      } else if (dayEvents.some(e => e.type === 'homework')) {
-        dotColor = 'blue';
+  const handleDeleteEvent = async (eventToDelete: CalendarEvent) => {
+    if (Platform.OS === 'web') {
+      const confirmDelete = window.confirm("Are you sure you want to remove this event?");
+      if (confirmDelete) {
+        await processDeletion(eventToDelete);
       }
-
-      marked[date] = { marked: true, dotColor };
-    });
-
-    // Add blue circle to selected date
-    marked[selectedDate] = {
-      ...marked[selectedDate],
-      selected: true,
-      selectedColor: '#00adf5',
-      selectedTextColor: '#ffffff',
-    };
-
-    setMarkedDates(marked);
+    } else {
+      Alert.alert("Delete Event", "Are you sure?", [
+        { text: "Cancel", style: "cancel" },
+        { text: "Delete", style: "destructive", onPress: () => processDeletion(eventToDelete) }
+      ]);
+    }
   };
 
   const handleAddEvent = async () => {
-    // Check if selected date is in the past
-    // However, allow editing an event even if it was in the past or moves to past? 
-    // Usually strict "no past events" might be annoying for edits, but keeping logic consistent.
     const today = new Date().toISOString().split('T')[0];
     if (selectedDate < today) {
-      Alert.alert('Error', 'You cannot add events to past dates');
       return;
     }
-
-    if (!description.trim()) {
-      Alert.alert('Error', 'Please enter a description');
-      return;
-    }
+    if (!description.trim()) return;
 
     try {
-      // If editing, delete the old event first
       if (editingEvent && editingDate) {
-        const deleteRes = await fetch(`${API_URL}/events/delete`, {
+        await fetch(`${API_URL}/events/delete`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -192,14 +155,10 @@ export default function CalendarScreen() {
           },
           body: JSON.stringify({
             id: editingEvent.id,
-            date: editingDate, // Use the original date of the event being edited
+            date: editingDate,
             description: editingEvent.description
           }),
         });
-
-        if (!deleteRes.ok) {
-          throw new Error('Failed to update (delete old) event');
-        }
       }
 
       const response = await fetch(`${API_URL}/events`, {
@@ -216,24 +175,17 @@ export default function CalendarScreen() {
       });
 
       if (response.ok) {
-        setDescription('');
-        setEditingEvent(null);
-        setEditingDate(null);
-        setShowForm(false);
+        handleCloseForm();
         fetchEvents();
-        Alert.alert('Success', `Event ${editingEvent ? 'updated' : 'added'} successfully`);
-      } else {
-        Alert.alert('Error', `Failed to ${editingEvent ? 'update' : 'add'} event`);
       }
     } catch (error) {
-      Alert.alert('Error', `Failed to ${editingEvent ? 'update' : 'add'} event`);
-      console.error('Error adding event:', error);
+      console.error(error);
     }
   };
 
   const handleEdit = (event: CalendarEvent) => {
     setEditingEvent(event);
-    setEditingDate(selectedDate); // Capture current selected date as original
+    setEditingDate(selectedDate);
     setDescription(event.description);
     setEventType(event.type);
     setShowForm(true);
@@ -249,357 +201,119 @@ export default function CalendarScreen() {
 
   const handleDateSelect = (day: any) => {
     setSelectedDate(day.dateString);
-    // Update marked dates to show blue circle on new selection
-    const updated: Record<string, any> = { ...markedDates };
-    Object.keys(updated).forEach(date => {
-      if (updated[date].selected) {
-        delete updated[date].selected;
-        delete updated[date].selectedColor;
-        delete updated[date].selectedTextColor;
-      }
-    });
-    updated[day.dateString] = {
-      ...updated[day.dateString],
-      selected: true,
-      selectedColor: '#00adf5',
-      selectedTextColor: '#ffffff',
-    };
-    setMarkedDates(updated);
+    updateMarkedDates(events);
   };
 
   const getEventColor = (type: EventType) => {
-    switch (type) {
-      case 'test':
-        return '#FF6B6B';
-      case 'project':
-        return '#FFA500';
-      case 'homework':
-        return '#4A90E2';
-      default:
-        return '#999';
-    }
+    const colors = { test: '#FF6B6B', project: '#FFA500', homework: '#4A90E2' };
+    return colors[type] || '#999';
   };
 
   const dayEvents = events[selectedDate] || [];
 
   return (
     <ScrollView style={styles.container}>
-      <Animated.View entering={ZoomIn.duration(600).springify()}>
+      <Animated.View entering={ZoomIn.duration(600)}>
         <Calendar
           markedDates={markedDates}
           onDayPress={handleDateSelect}
           theme={{
             todayTextColor: '#00adf5',
             selectedDayBackgroundColor: '#00adf5',
-            selectedDayTextColor: '#ffffff',
-            dotColor: '#00adf5',
-            selectedDotColor: '#ffffff',
             arrowColor: '#00adf5',
-            monthTextColor: '#2d5016',
           }}
         />
       </Animated.View>
 
-      {!showForm && (
-        <TouchableOpacity style={styles.addButtonContainer} onPress={() => { setEditingEvent(null); setEditingDate(null); setShowForm(true); }}>
-          <Text style={styles.addButtonContainerText}>Add Event</Text>
-        </TouchableOpacity>
-      )}
-
-      {showForm && (
-        <Animated.View entering={FadeInDown.duration(400)} style={styles.formContainer}>
-          <Text style={styles.label}>Selected Date: {selectedDate}</Text>
-
-          <Text style={styles.label}>Event Type</Text>
+      {showForm ? (
+        <Animated.View entering={FadeInDown} style={styles.formContainer}>
+          <Text style={styles.label}>Date: {selectedDate}</Text>
           <View style={styles.typeButtonsContainer}>
             {(['homework', 'test', 'project'] as EventType[]).map((type) => (
               <TouchableOpacity
                 key={type}
-                style={[
-                  styles.typeButton,
-                  eventType === type && styles.typeButtonActive,
-                  { backgroundColor: eventType === type ? getEventColor(type) : '#e0e0e0' },
-                ]}
+                style={[styles.typeButton, { backgroundColor: eventType === type ? getEventColor(type) : '#e0e0e0' }]}
                 onPress={() => setEventType(type)}
               >
-                <Text
-                  style={{
-                    color: eventType === type ? '#fff' : '#333',
-                    fontWeight: 'bold',
-                    textTransform: 'capitalize',
-                  }}
-                >
-                  {type}
-                </Text>
+                <Text style={{ color: eventType === type ? '#fff' : '#333', fontWeight: 'bold' }}>{type}</Text>
               </TouchableOpacity>
             ))}
           </View>
-
-          <Text style={styles.label}>Description</Text>
           <TextInput
             style={styles.input}
-            placeholder="Enter event description..."
+            placeholder="Description..."
             value={description}
             onChangeText={setDescription}
-            placeholderTextColor="#999"
             multiline
-            numberOfLines={3}
           />
-
           <TouchableOpacity style={styles.submitButton} onPress={handleAddEvent}>
-            <Text style={styles.submitButtonText}>{editingEvent ? 'Update Event' : 'Save Event'}</Text>
+            <Text style={styles.submitButtonText}>{editingEvent ? 'Update' : 'Save'}</Text>
           </TouchableOpacity>
-
           <TouchableOpacity style={styles.cancelButton} onPress={handleCloseForm}>
             <Text style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
-
-
         </Animated.View>
-      )}
+      ) : (
+        <View>
+          <View style={styles.buttonRow}>
+            <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#00adf5' }]} onPress={() => setShowForm(true)}>
+              <Text style={styles.buttonText}>Manual Add</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#6200ee' }]} onPress={handleAIScan} disabled={isScanning}>
+              {isScanning ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Scan your schedule</Text>}
+            </TouchableOpacity>
+          </View>
 
-      {dayEvents.length > 0 && (
-        <View style={styles.eventsListContainer}>
-          <Text style={styles.eventsTitle}>Events for {selectedDate}:</Text>
-          {dayEvents.map((event, index) => (
-            <Animated.View
-              key={event.id}
-              entering={FadeInRight.delay(index * 100).springify()}
-              layout={Layout.springify()}
-              style={[
-                styles.eventItem,
-                { borderLeftColor: getEventColor(event.type) },
-              ]}
-            >
-              <View style={styles.eventContent}>
-                <View style={styles.eventTextContainer}>
-                  <Text style={[styles.eventType, { color: getEventColor(event.type) }]}>{event.type.toUpperCase()}</Text>
-                  <Text style={styles.eventDescription}>{event.description}</Text>
-                </View>
-                <View style={styles.eventActions}>
-                  <TouchableOpacity onPress={() => handleEdit(event)} style={styles.actionIconButton}>
-                    <Ionicons name="pencil" size={20} color="#666" />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </Animated.View>
-          ))}
+          {dayEvents.length > 0 && (
+            <View style={styles.eventsListContainer}>
+              <Text style={styles.eventsTitle}>Events for {selectedDate}:</Text>
+              {dayEvents.map((event, index) => (
+                <Animated.View key={event.id} entering={FadeInRight.delay(index * 100)} layout={Layout.springify()} style={[styles.eventItem, { borderLeftColor: getEventColor(event.type) }]}>
+                  <View style={styles.eventContent}>
+                    <View style={styles.eventTextContainer}>
+                      <Text style={[styles.eventType, { color: getEventColor(event.type) }]}>{event.type.toUpperCase()}</Text>
+                      <Text style={styles.eventDescription}>{event.description}</Text>
+                    </View>
+                    <View style={styles.eventActions}>
+                      <TouchableOpacity onPress={() => handleEdit(event)} style={styles.actionIconButton}>
+                        <Ionicons name="pencil" size={18} color="#666" />
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => handleDeleteEvent(event)} style={[styles.actionIconButton, { backgroundColor: '#FFF5F5' }]}>
+                        <Ionicons name="trash-outline" size={18} color="#FF6B6B" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </Animated.View>
+              ))}
+            </View>
+          )}
         </View>
-      )}
-
-      {!showForm && (
-        <Animated.View entering={FadeInDown.delay(300)} style={styles.buttonRow}>
-          <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: '#00adf5' }]}
-            onPress={() => { setEditingEvent(null); setEditingDate(null); setShowForm(true); }}
-          >
-            <Text style={styles.buttonText}>Manual Add</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: '#6200ee' }]}
-            onPress={handleAIScan}
-            disabled={isScanning}
-          >
-            {isScanning ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.buttonText}>Scan with AI</Text>
-            )}
-          </TouchableOpacity>
-        </Animated.View>
       )}
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  buttonRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    marginTop: 20,
-    gap: 10,
-  },
-  actionButton: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: 'bold',
-  },
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    paddingTop: TOP_PADDING,
-  },
-  addButtonContainer: {
-    backgroundColor: '#00adf5',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    margin: 20,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addButtonContainerText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  formContainer: {
-    padding: 20,
-    backgroundColor: '#f5f5f5',
-    marginTop: 20,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 10,
-    color: '#333',
-    marginTop: 15,
-  },
-  typeButtonsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 15,
-    gap: 10,
-  },
-  typeButton: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  typeButtonActive: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3,
-    elevation: 5,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 15,
-    fontSize: 14,
-    color: '#333',
-    backgroundColor: '#fff',
-    textAlignVertical: 'top',
-  },
-  addButton: {
-    backgroundColor: '#00adf5',
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-  },
-  addButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  submitButton: {
-    backgroundColor: '#00adf5',
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
-  },
-  submitButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  cancelButton: {
-    backgroundColor: '#ccc',
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-  },
-  cancelButtonText: {
-    color: '#333',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  eventsListContainer: {
-    marginTop: 20,
-    paddingTop: 15,
-    borderTopWidth: 1,
-    borderTopColor: '#ddd',
-    paddingHorizontal: 20,
-    paddingBottom: 40
-  },
-  eventsTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 12,
-    color: '#333',
-  },
-  eventItem: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    marginBottom: 12,
-    borderLeftWidth: 5,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    padding: 0, // Reset padding to handle inner views
-    overflow: 'hidden'
-  },
-  eventContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-  },
-  eventTextContainer: {
-    flex: 1,
-    marginRight: 10,
-  },
-  eventType: {
-    fontSize: 11,
-    fontWeight: '800',
-    marginBottom: 4,
-    letterSpacing: 0.5,
-  },
-  eventDescription: {
-    fontSize: 15,
-    color: '#2d3748',
-    fontWeight: '500',
-    lineHeight: 20,
-  },
-  eventActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  actionIconButton: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: '#f7fafc',
-  },
-  deleteButton: {
-    padding: 8,
-  },
+  container: { flex: 1, backgroundColor: '#fff', paddingTop: TOP_PADDING },
+  buttonRow: { flexDirection: 'row', paddingHorizontal: 20, marginTop: 20, gap: 10 },
+  actionButton: { flex: 1, paddingVertical: 14, borderRadius: 8, alignItems: 'center' },
+  buttonText: { color: '#fff', fontWeight: 'bold' },
+  formContainer: { padding: 20, backgroundColor: '#f5f5f5', marginTop: 20 },
+  label: { fontSize: 16, fontWeight: '600', marginBottom: 10 },
+  typeButtonsContainer: { flexDirection: 'row', gap: 10, marginBottom: 15 },
+  typeButton: { flex: 1, paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
+  input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, backgroundColor: '#fff', minHeight: 80, textAlignVertical: 'top' },
+  submitButton: { backgroundColor: '#00adf5', paddingVertical: 14, borderRadius: 8, alignItems: 'center', marginTop: 10 },
+  submitButtonText: { color: '#fff', fontWeight: 'bold' },
+  cancelButton: { backgroundColor: '#ccc', paddingVertical: 14, borderRadius: 8, alignItems: 'center', marginTop: 10 },
+  cancelButtonText: { color: '#333', fontWeight: 'bold' },
+  eventsListContainer: { marginTop: 20, paddingHorizontal: 20, paddingBottom: 40 },
+  eventsTitle: { fontSize: 16, fontWeight: 'bold', marginBottom: 12 },
+  eventItem: { backgroundColor: '#fff', borderRadius: 12, marginBottom: 12, borderLeftWidth: 5, elevation: 2, shadowOpacity: 0.1, overflow: 'hidden' },
+  eventContent: { flexDirection: 'row', justifyContent: 'space-between', padding: 16 },
+  eventTextContainer: { flex: 1 },
+  eventType: { fontSize: 10, fontWeight: '800' },
+  eventDescription: { fontSize: 15, color: '#2d3748' },
+  eventActions: { flexDirection: 'row', gap: 8 },
+  actionIconButton: { padding: 8, borderRadius: 20, backgroundColor: '#f7fafc' }
 });
