@@ -314,6 +314,7 @@ def handle_chat():
     today_str = now.strftime("%Y-%m-%d")
     day_name = now.strftime("%A")
 
+
     if not user_text and not image_b64:
         return jsonify({"error": "Empty message"}), 400
 
@@ -332,10 +333,12 @@ def handle_chat():
             where = {"$and": [{"user_id":user_id}, {"session_id":str(chat_session.id)}]}
         )
         if history_results['documents'] and history_results['documents'][0]:
-            for doc, meta in zip(history_results['documents'][0], history_results['metadatas'][0]):
-                role = "user" if meta['role'] == "user" else "model"
-                gemini_history.append(types.Content(role=role, parts=[types.Part.from_text(text=doc)]))
+            for doc, meta, dist in zip(history_results['documents'][0], history_results['metadatas'][0], history_results['distances'][0]):
+                if dist < 1:
+                    role = "user" if meta['role'] == "user" else "model"
+                    gemini_history.append(types.Content(role=role, parts=[types.Part.from_text(text=doc)]))
 
+    print(f"GEN history len: {len(gemini_history)}")
     user_db_msg = ChatMessage(session_id=session_id, role='user', content=user_text)
     db.session.add(user_db_msg)
     db.session.flush()
@@ -353,9 +356,16 @@ def handle_chat():
             n_results=3, 
             where={"user_id": str(user_id)} 
         )
+        relevant_docs = []
         if search_results['documents'] and search_results['documents'][0]:
-            context = "\nRelevant context from your calendar:\n" + "\n".join(search_results['documents'][0])
-            print(context)
+            print(search_results['distances'][0])
+            for doc, distance in zip(search_results['documents'][0], search_results['distances'][0]):
+                if distance < 0.5:
+                    relevant_docs.append(doc)
+
+            if relevant_docs:
+                context += "\nUse this relevant context from your calendar:\n" + "\n".join(relevant_docs)
+                print(context)
 
     current_parts = []
     if user_text:
@@ -376,11 +386,10 @@ def handle_chat():
             model="gemini-flash-latest",
             config=types.GenerateContentConfig(
                 system_instruction=f"""
-                You are a helpful student assistant. 
+                You are a helpful student assistant, focus on giving short and clear answers. 
 
-                TODAY'S DATE: {today_str} ({day_name}).
-                
-                Use this info to help the user: {context}.
+                Note that today's date is : {today_str} ({day_name}), just in case.
+                {context}.
                 IMPORTANT: Always format mathematical formulas using standard Markdown code blocks or inline backticks. 
                 Example: `x = y^2`. 
                 Strictly avoid using LaTeX symbols like $, $$, or \[ \]. 
