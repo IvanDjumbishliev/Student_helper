@@ -329,7 +329,7 @@ def handle_chat():
         history_results = chat_collection.query(
             query_texts=[user_text],
             n_results = 4,
-            where = {"user_id":user_id}
+            where = {"$and": [{"user_id":user_id}, {"session_id":str(chat_session.id)}]}
         )
         if history_results['documents'] and history_results['documents'][0]:
             for doc, meta in zip(history_results['documents'][0], history_results['metadatas'][0]):
@@ -343,7 +343,7 @@ def handle_chat():
     chat_collection.add(
         ids=[str(chat_session.id) + "_" + str(user_db_msg.id)],
         documents=[user_text],
-        metadatas=[{"role":"user", "user_id":str(user_id)}]
+        metadatas=[{"role":"user", "user_id":str(user_id), "session_id":str(chat_session.id)}]
     )
 
     context = ""
@@ -398,7 +398,7 @@ def handle_chat():
         chat_collection.add(
             ids=[str(chat_session.id) + "_" + str(ai_db_msg.id) + "1"],
             documents=[ai_db_msg.content],
-            metadatas=[{"role":"ai", "user_id":str(user_id)}]
+            metadatas=[{"role":"ai", "user_id":str(user_id), "session_id":str(chat_session.id)}]
         )
 
         db.session.commit()
