@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Alert, ActivityIndicator, Platform, StatusBar } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Alert, ActivityIndicator, Platform, StatusBar, Dimensions } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Calendar } from 'react-native-calendars';
 import { API_URL } from '../../config/api';
 import { useSession } from '../../ctx';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, { FadeInDown, ZoomIn, FadeInRight, Layout } from 'react-native-reanimated';
+import Animated, { FadeInDown, ZoomIn, FadeInRight, Layout, FadeIn } from 'react-native-reanimated';
 
+const { height } = Dimensions.get('window');
 const TOP_PADDING = Platform.OS === 'ios' ? 60 : (StatusBar.currentHeight || 0) + 10;
 
 type EventType = 'homework' | 'test' | 'project';
@@ -28,6 +29,8 @@ export default function CalendarScreen() {
   const [showForm, setShowForm] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [editingDate, setEditingDate] = useState<string | null>(null);
+  const [extractedResults, setExtractedResults] = useState<any[]>([]);
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
 
   useEffect(() => {
     fetchEvents();
@@ -71,7 +74,7 @@ export default function CalendarScreen() {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
       if (Platform.OS === 'web') alert('Camera access required.');
-      else Alert.alert('Permission Denied', 'Camera access required.');
+      else Alert.alert('Отказ', 'Нужен е достъп до камерата.');
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
@@ -90,8 +93,13 @@ export default function CalendarScreen() {
           },
           body: JSON.stringify({ image: result.assets[0].base64 }),
         });
+        const data = await response.json();
         if (response.ok) {
+          setExtractedResults(data.events || []);
+          setShowSuccessPopup(true);
           fetchEvents();
+        } else {
+          Alert.alert("Грешка", "Не успяхме да разчетем снимката.");
         }
       } catch (err) {
         console.error(err);
@@ -126,23 +134,19 @@ export default function CalendarScreen() {
 
   const handleDeleteEvent = async (eventToDelete: CalendarEvent) => {
     if (Platform.OS === 'web') {
-      const confirmDelete = window.confirm("Are you sure you want to remove this event?");
-      if (confirmDelete) {
-        await processDeletion(eventToDelete);
-      }
+      const confirmDelete = window.confirm("Сигурни ли сте, че искате да изтриете това събитие?");
+      if (confirmDelete) await processDeletion(eventToDelete);
     } else {
-      Alert.alert("Delete Event", "Are you sure?", [
-        { text: "Cancel", style: "cancel" },
-        { text: "Delete", style: "destructive", onPress: () => processDeletion(eventToDelete) }
+      Alert.alert("Изтриване", "Сигурни ли сте?", [
+        { text: "Отказ", style: "cancel" },
+        { text: "Изтрий", style: "destructive", onPress: () => processDeletion(eventToDelete) }
       ]);
     }
   };
 
   const handleAddEvent = async () => {
     const today = new Date().toISOString().split('T')[0];
-    if (selectedDate < today) {
-      return;
-    }
+    if (selectedDate < today) return;
     if (!description.trim()) return;
 
     try {
@@ -212,84 +216,118 @@ export default function CalendarScreen() {
   const dayEvents = events[selectedDate] || [];
 
   return (
-    <ScrollView style={styles.container}>
-      <Animated.View entering={ZoomIn.duration(600)}>
-        <Calendar
-          markedDates={markedDates}
-          onDayPress={handleDateSelect}
-          theme={{
-            todayTextColor: '#00adf5',
-            selectedDayBackgroundColor: '#00adf5',
-            arrowColor: '#00adf5',
-          }}
-        />
-      </Animated.View>
-
-      {showForm ? (
-        <Animated.View entering={FadeInDown} style={styles.formContainer}>
-          <Text style={styles.label}>Дата: {selectedDate}</Text>
-          <View style={styles.typeButtonsContainer}>
-            {(['homework', 'test', 'project'] as EventType[]).map((type) => (
-              <TouchableOpacity
-                key={type}
-                style={[styles.typeButton, { backgroundColor: eventType === type ? getEventColor(type) : '#e0e0e0' }]}
-                onPress={() => setEventType(type)}
-              >
-                <Text style={{ color: eventType === type ? '#fff' : '#333', fontWeight: 'bold' }}>{type}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          <TextInput
-            style={styles.input}
-            placeholder="Описание..."
-            value={description}
-            onChangeText={setDescription}
-            multiline
+    <View style={{ flex: 1 }}>
+      <ScrollView style={styles.container}>
+        <Animated.View entering={ZoomIn.duration(600)}>
+          <Calendar
+            markedDates={markedDates}
+            onDayPress={handleDateSelect}
+            theme={{
+              todayTextColor: '#00adf5',
+              selectedDayBackgroundColor: '#00adf5',
+              arrowColor: '#00adf5',
+            }}
           />
-          <TouchableOpacity style={styles.submitButton} onPress={handleAddEvent}>
-            <Text style={styles.submitButtonText}>{editingEvent ? 'Промени' : 'Запази'}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.cancelButton} onPress={handleCloseForm}>
-            <Text style={styles.cancelButtonText}>Отказ</Text>
-          </TouchableOpacity>
         </Animated.View>
-      ) : (
-        <View>
-          <View style={styles.buttonRow}>
-            <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#00adf5' }]} onPress={() => setShowForm(true)}>
-              <Text style={styles.buttonText}>Ръчно добавяне</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#6200ee' }]} onPress={handleAIScan} disabled={isScanning}>
-              {isScanning ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Снимка на графика</Text>}
-            </TouchableOpacity>
-          </View>
 
-          {dayEvents.length > 0 && (
-            <View style={styles.eventsListContainer}>
-              <Text style={styles.eventsTitle}>Събития за {selectedDate}:</Text>
-              {dayEvents.map((event, index) => (
-                <Animated.View key={event.id} entering={FadeInRight.delay(index * 100)} layout={Layout.springify()} style={[styles.eventItem, { borderLeftColor: getEventColor(event.type) }]}>
-                  <View style={styles.eventContent}>
-                    <View style={styles.eventTextContainer}>
-                      <Text style={[styles.eventType, { color: getEventColor(event.type) }]}>{event.type.toUpperCase()}</Text>
-                      <Text style={styles.eventDescription}>{event.description}</Text>
-                    </View>
-                    <View style={styles.eventActions}>
-                      <TouchableOpacity onPress={() => handleEdit(event)} style={styles.actionIconButton}>
-                        <Ionicons name="pencil" size={18} color="#666" />
-                      </TouchableOpacity>
-                      <TouchableOpacity onPress={() => handleDeleteEvent(event)} style={[styles.actionIconButton, { backgroundColor: '#FFF5F5' }]}>
-                        <Ionicons name="trash-outline" size={18} color="#FF6B6B" />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                </Animated.View>
+        {showForm ? (
+          <Animated.View entering={FadeInDown} style={styles.formContainer}>
+            <Text style={styles.label}>Дата: {selectedDate}</Text>
+            <View style={styles.typeButtonsContainer}>
+              {(['homework', 'test', 'project'] as EventType[]).map((type) => (
+                <TouchableOpacity
+                  key={type}
+                  style={[styles.typeButton, { backgroundColor: eventType === type ? getEventColor(type) : '#e0e0e0' }]}
+                  onPress={() => setEventType(type)}
+                >
+                  <Text style={{ color: eventType === type ? '#fff' : '#333', fontWeight: 'bold' }}>
+                    {type === 'homework' ? 'Домашно' : type === 'test' ? 'Тест' : 'Проект'}
+                  </Text>
+                </TouchableOpacity>
               ))}
             </View>
-          )}
-        </View>
+            <TextInput
+              style={styles.input}
+              placeholder="Описание на задачата..."
+              value={description}
+              onChangeText={setDescription}
+              multiline
+            />
+            <TouchableOpacity style={styles.submitButton} onPress={handleAddEvent}>
+              <Text style={styles.submitButtonText}>{editingEvent ? 'Промени' : 'Запази'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.cancelButton} onPress={handleCloseForm}>
+              <Text style={styles.cancelButtonText}>Отказ</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        ) : (
+          <View>
+            <View style={styles.buttonRow}>
+              <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#00adf5' }]} onPress={() => setShowForm(true)}>
+                <Text style={styles.buttonText}>Ръчно добавяне</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#6200ee' }]} onPress={handleAIScan} disabled={isScanning}>
+                {isScanning ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Снимка на графика</Text>}
+              </TouchableOpacity>
+            </View>
+
+            {dayEvents.length > 0 && (
+              <View style={styles.eventsListContainer}>
+                <Text style={styles.eventsTitle}>Събития за {selectedDate}:</Text>
+                {dayEvents.map((event, index) => (
+                  <Animated.View key={event.id} entering={FadeInRight.delay(index * 100)} layout={Layout.springify()} style={[styles.eventItem, { borderLeftColor: getEventColor(event.type) }]}>
+                    <View style={styles.eventContent}>
+                      <View style={styles.eventTextContainer}>
+                        <Text style={[styles.eventType, { color: getEventColor(event.type) }]}>{event.type.toUpperCase()}</Text>
+                        <Text style={styles.eventDescription}>{event.description}</Text>
+                      </View>
+                      <View style={styles.eventActions}>
+                        <TouchableOpacity onPress={() => handleEdit(event)} style={styles.actionIconButton}>
+                          <Ionicons name="pencil" size={18} color="#666" />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => handleDeleteEvent(event)} style={[styles.actionIconButton, { backgroundColor: '#FFF5F5' }]}>
+                          <Ionicons name="trash-outline" size={18} color="#FF6B6B" />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </Animated.View>
+                ))}
+              </View>
+            )}
+          </View>
+        )}
+      </ScrollView>
+
+      {showSuccessPopup && (
+        <Animated.View entering={FadeIn} style={styles.popupOverlay}>
+          <Animated.View entering={FadeInDown.springify()} style={styles.popupCard}>
+            <View style={styles.popupHeader}>
+              <Ionicons name="checkmark-circle" size={28} color="#10b981" />
+              <Text style={styles.popupTitle}>Успешно извличане!</Text>
+            </View>
+            <Text style={styles.popupSubtitle}>
+              {extractedResults.length > 0 
+                ? `Открихме ${extractedResults.length} нови събития в графика:` 
+                : "Не бяха открити събития в тази снимка."}
+            </Text>
+            <ScrollView style={styles.popupList} showsVerticalScrollIndicator={false}>
+              {extractedResults.map((item, idx) => (
+                <View key={idx} style={styles.popupItem}>
+                  <View style={[styles.typeIndicator, { backgroundColor: getEventColor(item.type) }]} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.popupItemDate}>{item.date}</Text>
+                    <Text style={styles.popupItemDesc}>{item.description}</Text>
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+            <TouchableOpacity style={styles.popupButton} onPress={() => setShowSuccessPopup(false)}>
+              <Text style={styles.popupButtonText}>Разбрах</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </Animated.View>
       )}
-    </ScrollView>
+    </View>
   );
 }
 
@@ -315,5 +353,17 @@ const styles = StyleSheet.create({
   eventType: { fontSize: 10, fontWeight: '800' },
   eventDescription: { fontSize: 15, color: '#2d3748' },
   eventActions: { flexDirection: 'row', gap: 8 },
-  actionIconButton: { padding: 8, borderRadius: 20, backgroundColor: '#f7fafc' }
+  actionIconButton: { padding: 8, borderRadius: 20, backgroundColor: '#f7fafc' },
+  popupOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', zIndex: 9999, padding: 20 },
+  popupCard: { backgroundColor: '#fff', width: '100%', borderRadius: 24, padding: 24, maxHeight: height * 0.7, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.3, shadowRadius: 20, elevation: 15 },
+  popupHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
+  popupTitle: { fontSize: 22, fontWeight: 'bold', color: '#1e293b' },
+  popupSubtitle: { color: '#64748b', fontSize: 15, marginBottom: 20, lineHeight: 22 },
+  popupList: { marginBottom: 20 },
+  popupItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', gap: 15 },
+  typeIndicator: { width: 4, height: 35, borderRadius: 2 },
+  popupItemDate: { fontSize: 12, color: '#94a3b8', fontWeight: 'bold', marginBottom: 2 },
+  popupItemDesc: { fontSize: 15, color: '#1e293b', fontWeight: '500' },
+  popupButton: { backgroundColor: '#6200ee', paddingVertical: 16, borderRadius: 14, alignItems: 'center' },
+  popupButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 }
 });

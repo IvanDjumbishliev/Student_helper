@@ -187,7 +187,7 @@ def create_event():
             documents=[f"Date: {new_event.date}, Task: {new_event.description}"],
             metadatas=[{"user_id": str(current_user_id)}]
         )
-
+        print("Event added")
         return {
             "message": "Event created successfully",
             "data": {
@@ -334,7 +334,7 @@ def handle_chat():
         )
         if history_results['documents'] and history_results['documents'][0]:
             for doc, meta, dist in zip(history_results['documents'][0], history_results['metadatas'][0], history_results['distances'][0]):
-                if dist < 1:
+                if dist <= 1:
                     role = "user" if meta['role'] == "user" else "model"
                     gemini_history.append(types.Content(role=role, parts=[types.Part.from_text(text=doc)]))
 
@@ -360,7 +360,7 @@ def handle_chat():
         if search_results['documents'] and search_results['documents'][0]:
             print(search_results['distances'][0])
             for doc, distance in zip(search_results['documents'][0], search_results['distances'][0]):
-                if distance < 0.5:
+                if distance <= 1:
                     relevant_docs.append(doc)
 
             if relevant_docs:
