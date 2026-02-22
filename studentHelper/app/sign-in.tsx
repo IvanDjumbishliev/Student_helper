@@ -24,14 +24,14 @@ export default function SignIn() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Welcome Back</Text>
+      <Text style={styles.title}>Здравейте, отново!</Text>
 
       <TextInput
         value={email}
         onChangeText={setEmail}
         autoCapitalize="none"
         keyboardType="email-address"
-        placeholder="Email"
+        placeholder="Потребителско име"
         style={styles.input}
       />
 
@@ -39,18 +39,18 @@ export default function SignIn() {
         value={password}
         onChangeText={setPassword}
         secureTextEntry
-        placeholder="Password"
+        placeholder="Парола"
         style={styles.input}
       />
 
       <TouchableOpacity style={styles.button} onPress={handleSignIn}>
-        <Text style={styles.buttonText}>Sign In</Text>
+        <Text style={styles.buttonText}>Вход</Text>
       </TouchableOpacity>
 
       <Text style={styles.registerText}>
-        Don't have an account?{' '}
+        Нямате акаунт?{' '}
         <Text style={styles.registerLink} onPress={() => router.push('/register')}>
-          Register
+          Регистрация
         </Text>
       </Text>
     </View>

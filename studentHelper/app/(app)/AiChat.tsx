@@ -172,8 +172,8 @@ export default function ExamTutorScreen() {
           {!currentChat || currentChat.messages.length === 0 ? (
             <Animated.View entering={FadeInUp.duration(600).springify()} style={styles.welcomeContainer}>
               <Ionicons name="chatbubbles-outline" size={80} color="#cbd5e1" />
-              <Text style={styles.welcomeTitle}>New Conversation</Text>
-              <Text style={styles.welcomeSub}>Send a message!</Text>
+              <Text style={styles.welcomeTitle}>Нов разговор</Text>
+              <Text style={styles.welcomeSub}>Изпратете съобщение!</Text>
             </Animated.View>
           ) : (
             currentChat.messages.map((msg) => (
@@ -209,7 +209,7 @@ export default function ExamTutorScreen() {
           </TouchableOpacity>
           <TextInput
             style={styles.textInput}
-            placeholder="Type a message..."
+            placeholder="Въведете съобщение..."
             value={inputText}
             onChangeText={setInputText}
             multiline
@@ -223,7 +223,7 @@ export default function ExamTutorScreen() {
       <Modal visible={isHistoryVisible} animationType="fade" transparent={true}>
         <View style={styles.modalBackdrop}>
           <View style={styles.sidebar}>
-            <Text style={styles.sidebarHeader}>History</Text>
+            <Text style={styles.sidebarHeader}>История</Text>
             <FlatList
               data={sessions}
               keyExtractor={(item) => item.id}
@@ -241,7 +241,7 @@ export default function ExamTutorScreen() {
               )}
             />
             <TouchableOpacity style={styles.closeSidebar} onPress={() => setIsHistoryVisible(false)}>
-              <Text style={styles.closeText}>Close</Text>
+              <Text style={styles.closeText}>Затвори</Text>
             </TouchableOpacity>
           </View>
           <TouchableOpacity style={{ flex: 1 }} onPress={() => setIsHistoryVisible(false)} />

@@ -151,12 +151,12 @@ export default function TestGeneratorScreen() {
       <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
         <TouchableOpacity style={styles.backLink} onPress={resetQuiz}>
           <Ionicons name="arrow-back" size={20} color="#2563eb" />
-          <Text style={styles.backLinkText}>Cancel</Text>
+          <Text style={styles.backLinkText}>Отказ</Text>
         </TouchableOpacity>
 
         <Animated.View entering={FadeInDown.duration(500)}>
-          <Text style={styles.headerTitle}>Practice: {selectedTest.description}</Text>
-          <Text style={styles.subTitle}>Select the correct answer for each question.</Text>
+          <Text style={styles.headerTitle}>Упражнение: {selectedTest.description}</Text>
+          <Text style={styles.subTitle}>Отбележете верният отговор на всеки от въпросите.</Text>
         </Animated.View>
 
         {quiz.map((q, index) => (
@@ -199,16 +199,16 @@ export default function TestGeneratorScreen() {
 
         {score === null ? (
           <TouchableOpacity style={styles.submitBtn} onPress={calculateScore}>
-            <Text style={styles.btnText}>Finish and Calculate Score</Text>
+            <Text style={styles.btnText}>Приключи и покажи резултата</Text>
           </TouchableOpacity>
         ) : (
           <Animated.View entering={ZoomIn.duration(600).springify()} style={styles.resultCard}>
-            <Text style={styles.scoreText}>Result: {score} / {quiz.length}</Text>
+            <Text style={styles.scoreText}>Резултат: {score} / {quiz.length}</Text>
             <Text style={styles.scoreSubText}>
               {score === quiz.length ? "Perfect! You are ready!" : "Review your mistakes in red above."}
             </Text>
             <TouchableOpacity style={styles.resetBtn} onPress={resetQuiz}>
-              <Text style={styles.btnText}>Try Another Topic</Text>
+              <Text style={styles.btnText}>Опитайте друга тема</Text>
             </TouchableOpacity>
           </Animated.View>
         )}
@@ -220,8 +220,8 @@ export default function TestGeneratorScreen() {
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20} style={{ flex: 1 }}>
       <ScrollView style={styles.container}>
         <Animated.View entering={FadeInDown.duration(600)}>
-          <Text style={styles.headerTitle}>AI Study Coach</Text>
-          <Text style={styles.subTitle}>Select an upcoming test to prepare.</Text>
+          <Text style={styles.headerTitle}>Учител Помощник</Text>
+          <Text style={styles.subTitle}>Изберете някой от предстоящите ви тестове, за да се подготвите.</Text>
         </Animated.View>
 
         {loading ? (
@@ -247,22 +247,22 @@ export default function TestGeneratorScreen() {
           ))
         ) : (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>No upcoming tests found in your calendar.</Text>
+            <Text style={styles.emptyText}>Няма предстоящи тестове във вашият календар.</Text>
           </View>
         )}
 
         {selectedTest && (
           <Animated.View entering={FadeInDown.duration(500)} style={styles.contextArea}>
-            <Text style={styles.label}>Paste Notes or Specific Topics:</Text>
+            <Text style={styles.label}>Поставете записки или теми:</Text>
             <TextInput
               style={styles.textArea}
-              placeholder="Example: The test covers the Water Cycle, condensation, and evaporation..."
+              placeholder="Пример:Теста е върху Цикълът на водата..."
               multiline
               value={context}
               onChangeText={setContext}
             />
 
-            <Text style={[styles.label, { marginTop: 20 }]}>Capture Notes (Max 2):</Text>
+            <Text style={[styles.label, { marginTop: 20 }]}>Снимайте записки (Макс 2):</Text>
             <View style={styles.imageRow}>
               {images.map((img, index) => (
                 <View key={index} style={styles.imagePreviewContainer}>
@@ -276,13 +276,13 @@ export default function TestGeneratorScreen() {
               {images.length < 2 && (
                 <TouchableOpacity style={styles.addImageBtn} onPress={takePhoto}>
                   <Ionicons name="camera" size={30} color="#64748b" />
-                  <Text style={styles.addImageText}>Take Photo</Text>
+                  <Text style={styles.addImageText}>Направете снимка</Text>
                 </TouchableOpacity>
               )}
             </View>
 
 
-            <Text style={[styles.label, { marginTop: 20 }]}>Number of Questions:</Text>
+            <Text style={[styles.label, { marginTop: 20 }]}>Брой въпроси:</Text>
             <View style={styles.countRow}>
               {[5, 7, 10].map((num) => (
                 <TouchableOpacity
@@ -307,7 +307,7 @@ export default function TestGeneratorScreen() {
               onPress={generateQuiz}
               disabled={isGenerating}
             >
-              {isGenerating ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>Generate Practice Test</Text>}
+              {isGenerating ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>Генерирай тест за подготовка</Text>}
             </TouchableOpacity>
           </Animated.View>
         )}

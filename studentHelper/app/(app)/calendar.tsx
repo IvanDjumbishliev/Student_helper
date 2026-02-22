@@ -227,7 +227,7 @@ export default function CalendarScreen() {
 
       {showForm ? (
         <Animated.View entering={FadeInDown} style={styles.formContainer}>
-          <Text style={styles.label}>Date: {selectedDate}</Text>
+          <Text style={styles.label}>Дата: {selectedDate}</Text>
           <View style={styles.typeButtonsContainer}>
             {(['homework', 'test', 'project'] as EventType[]).map((type) => (
               <TouchableOpacity
@@ -241,32 +241,32 @@ export default function CalendarScreen() {
           </View>
           <TextInput
             style={styles.input}
-            placeholder="Description..."
+            placeholder="Описание..."
             value={description}
             onChangeText={setDescription}
             multiline
           />
           <TouchableOpacity style={styles.submitButton} onPress={handleAddEvent}>
-            <Text style={styles.submitButtonText}>{editingEvent ? 'Update' : 'Save'}</Text>
+            <Text style={styles.submitButtonText}>{editingEvent ? 'Промени' : 'Запази'}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.cancelButton} onPress={handleCloseForm}>
-            <Text style={styles.cancelButtonText}>Cancel</Text>
+            <Text style={styles.cancelButtonText}>Отказ</Text>
           </TouchableOpacity>
         </Animated.View>
       ) : (
         <View>
           <View style={styles.buttonRow}>
             <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#00adf5' }]} onPress={() => setShowForm(true)}>
-              <Text style={styles.buttonText}>Manual Add</Text>
+              <Text style={styles.buttonText}>Ръчно добавяне</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#6200ee' }]} onPress={handleAIScan} disabled={isScanning}>
-              {isScanning ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Scan your schedule</Text>}
+              {isScanning ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Снимка на графика</Text>}
             </TouchableOpacity>
           </View>
 
           {dayEvents.length > 0 && (
             <View style={styles.eventsListContainer}>
-              <Text style={styles.eventsTitle}>Events for {selectedDate}:</Text>
+              <Text style={styles.eventsTitle}>Събития за {selectedDate}:</Text>
               {dayEvents.map((event, index) => (
                 <Animated.View key={event.id} entering={FadeInRight.delay(index * 100)} layout={Layout.springify()} style={[styles.eventItem, { borderLeftColor: getEventColor(event.type) }]}>
                   <View style={styles.eventContent}>

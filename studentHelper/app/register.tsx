@@ -22,14 +22,14 @@ export default function RegisterScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Create Account</Text>
+      <Text style={styles.title}>Създаване на акаунт</Text>
 
       <TextInput
         value={email}
         onChangeText={setEmail}
         autoCapitalize="none"
         keyboardType="email-address"
-        placeholder="Email"
+        placeholder="Потребителско име"
         style={styles.input}
       />
 
@@ -37,18 +37,18 @@ export default function RegisterScreen() {
         value={password}
         onChangeText={setPassword}
         secureTextEntry
-        placeholder="Password"
+        placeholder="Парола"
         style={styles.input}
       />
 
       <TouchableOpacity style={styles.button} onPress={handleRegister}>
-        <Text style={styles.buttonText}>Register</Text>
+        <Text style={styles.buttonText}>Регистрация</Text>
       </TouchableOpacity>
 
       <Text style={styles.signInText}>
-        Already have an account?{' '}
+        Вече имате акаунт?{' '}
         <Text style={styles.signInLink} onPress={() => router.push('/sign-in')}>
-          Sign In
+          Вход
         </Text>
       </Text>
     </View>

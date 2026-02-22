@@ -94,8 +94,8 @@ export default function HomePage() {
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <Animated.View entering={FadeInDown.duration(600).springify()} style={styles.header}>
         <View>
-          <Text style={styles.greeting}>Welcome Back!</Text>
-          <Text style={styles.subGreeting}>You have {upcomingEvents.length} upcoming tasks.</Text>
+          <Text style={styles.greeting}>Здравейте, отново!</Text>
+          <Text style={styles.subGreeting}>Имате {upcomingEvents.length} предстоящи задачи.</Text>
         </View>
         <TouchableOpacity style={styles.logoutBtn} onPress={handleSignOut}>
           <Ionicons name="log-out-outline" size={22} color="#ef4444" />
@@ -103,41 +103,41 @@ export default function HomePage() {
       </Animated.View>
 
       <Animated.View entering={ZoomIn.duration(500).delay(100)} style={styles.mainCard}>
-        <Text style={styles.cardLabel}>NEXT DEADLINE</Text>
+        <Text style={styles.cardLabel}>СЛЕДВАЩО СЪБИТИЕ</Text>
         {loading ? (
           <ActivityIndicator color="#fff" style={{ marginVertical: 20 }} />
         ) : upcomingEvents.length > 0 ? (
           <>
             <Text style={styles.countdownDays}>
-              {upcomingEvents[0].daysLeft === 0 ? "TODAY" : `${upcomingEvents[0].daysLeft} Days`}
+              {upcomingEvents[0].daysLeft === 0 ? "ДНЕС" : `${upcomingEvents[0].daysLeft} Дена`}
             </Text>
             <Text style={styles.countdownTarget} numberOfLines={1}>{upcomingEvents[0].description}</Text>
           </>
         ) : (
-          <Text style={styles.countdownTarget}>All caught up!</Text>
+          <Text style={styles.countdownTarget}>Всичко е готово!</Text>
         )}
       </Animated.View>
 
       <Animated.View entering={FadeInRight.duration(500).delay(200)} style={styles.actionGrid}>
         <TouchableOpacity style={styles.actionBtn} onPress={() => router.push('/AiChat')}>
           <Ionicons name="chatbubble-ellipses" size={24} color="#2563eb" />
-          <Text style={styles.actionText}>Ask AI</Text>
+          <Text style={styles.actionText}>Задайте въпрос</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.actionBtn} onPress={() => router.push({ pathname: '/schoolwork', params: { mode: 'create' } })}>
           <Ionicons name="sparkles" size={24} color="#8b5cf6" />
-          <Text style={styles.actionText}>Analysis</Text>
+          <Text style={styles.actionText}>Анализи</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.actionBtn} onPress={() => router.push('/calendar')}>
           <Ionicons name="calendar" size={24} color="#10b981" />
-          <Text style={styles.actionText}>Calendar</Text>
+          <Text style={styles.actionText}>Календар</Text>
         </TouchableOpacity>
       </Animated.View>
 
       {recents.length > 0 && (
         <Animated.View entering={FadeInRight.duration(600).delay(300)} style={styles.section}>
-          <Text style={styles.sectionTitle}>Recent Insights</Text>
+          <Text style={styles.sectionTitle}>Насоки и статистики</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingLeft: 20 }}>
             {recents.map((item, i) => (
               <TouchableOpacity
@@ -161,7 +161,7 @@ export default function HomePage() {
       )}
 
       <Animated.View entering={FadeInDown.duration(600).delay(400)} style={styles.listSection}>
-        <Text style={styles.sectionTitle}>Agenda</Text>
+        <Text style={styles.sectionTitle}>График</Text>
         {upcomingEvents.slice(1, 4).map((item, index) => (
           <Animated.View key={index} entering={FadeInDown.delay(index * 100 + 500)} style={styles.listItem}>
             <View style={{ flex: 1 }}>
@@ -169,7 +169,7 @@ export default function HomePage() {
               <Text style={styles.itemDate}>{item.date}</Text>
             </View>
             <View style={styles.daysTag}>
-              <Text style={styles.daysTagText}>{item.daysLeft}d</Text>
+              <Text style={styles.daysTagText}>{item.daysLeft}д</Text>
             </View>
           </Animated.View>
         ))}
@@ -177,17 +177,17 @@ export default function HomePage() {
 
 
       <Animated.View entering={FadeInDown.duration(600).delay(600)} style={styles.scoreSection}>
-        <Text style={styles.sectionTitle}>Performance</Text>
+        <Text style={styles.sectionTitle}>Представяне</Text>
         <View style={styles.scoreCard}>
           <View style={styles.scoreItem}>
             <Text style={styles.scoreValue}>{scores?.total_tests || 0}</Text>
-            <Text style={styles.scoreLabel}>Tests Completed</Text>
+            <Text style={styles.scoreLabel}>Направени тестове</Text>
           </View>
           <View style={[styles.scoreItem, styles.scoreBorder]}>
             <Text style={[styles.scoreValue, { color: (scores?.avg_percentage || 0) <= 50 ? '#ef4444' : '#10b981' }]}>
               {scores?.avg_percentage || 0}%
             </Text>
-            <Text style={styles.scoreLabel}>Avg. Accuracy</Text>
+            <Text style={styles.scoreLabel}>Средна оценка</Text>
           </View>
         </View>
       </Animated.View>

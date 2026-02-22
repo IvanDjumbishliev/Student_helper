@@ -198,7 +198,7 @@ export default function Profile() {
         </Animated.View>
 
         {/* Recent Activity */}
-        <Animated.Text entering={FadeInDown.delay(300).duration(600)} style={styles.sectionTitle}>Recent Activity</Animated.Text>
+        <Animated.Text entering={FadeInDown.delay(300).duration(600)} style={styles.sectionTitle}>Скорошна дейност</Animated.Text>
         {activities.length > 0 ? (
           <View style={styles.activityList}>
             {activities.map((act, index) => (
@@ -217,13 +217,13 @@ export default function Profile() {
             ))}
           </View>
         ) : (
-          <Text style={styles.emptyText}>No recent activity found.</Text>
+          <Text style={styles.emptyText}>Няма скорошна дейност.</Text>
         )}
 
         {/* Settings */}
-        <Animated.Text entering={FadeInDown.delay(500).duration(600)} style={styles.sectionTitle}>Account Settings</Animated.Text>
+        <Animated.Text entering={FadeInDown.delay(500).duration(600)} style={styles.sectionTitle}>Настройки на акаунта</Animated.Text>
         <Animated.View entering={FadeInDown.delay(600).duration(600)} style={styles.settingsCard}>
-          <Text style={styles.label}>Change Password</Text>
+          <Text style={styles.label}>Промяна на паролата</Text>
           <TextInput
             placeholder="New password"
             secureTextEntry
@@ -239,14 +239,14 @@ export default function Profile() {
             style={styles.input}
           />
           <TouchableOpacity style={styles.button} onPress={changePassword}>
-            <Text style={styles.buttonText}>Update Password</Text>
+            <Text style={styles.buttonText}>Промяна на паролата</Text>
           </TouchableOpacity>
 
           <View style={styles.divider} />
 
           <TouchableOpacity style={styles.logout} onPress={signOut}>
             <Ionicons name="log-out-outline" size={20} color="#ef4444" style={{ marginRight: 8 }} />
-            <Text style={styles.logoutText}>Sign Out</Text>
+            <Text style={styles.logoutText}>Изход</Text>
           </TouchableOpacity>
         </Animated.View>
       </View>
