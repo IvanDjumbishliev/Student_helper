@@ -10,7 +10,7 @@ export default function SignIn() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-
+  
   const [modalVisible, setModalVisible] = useState(false);
   const [modalConfig, setModalConfig] = useState({ title: '', message: '', isError: false });
 
@@ -18,7 +18,7 @@ export default function SignIn() {
     try {
       await signIn(email, password);
       console.log("Login successful, navigating to /home");
-      router.replace('/home');
+      router.replace('/home'); 
       console.log("Navigated to /home");
     } catch (err: any) {
       setModalConfig({
@@ -40,7 +40,6 @@ export default function SignIn() {
         autoCapitalize="none"
         keyboardType="email-address"
         placeholder="Потребителско име"
-        placeholderTextColor="#94a3b8"
         style={styles.input}
       />
 
@@ -49,7 +48,6 @@ export default function SignIn() {
         onChangeText={setPassword}
         secureTextEntry
         placeholder="Парола"
-        placeholderTextColor="#94a3b8"
         style={styles.input}
       />
 
@@ -72,17 +70,17 @@ export default function SignIn() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <View style={[styles.iconContainer, { backgroundColor: modalConfig.isError ? '#f1f5f9' : '#f0f4f2' }]}>
-              <Ionicons
-                name={modalConfig.isError ? "alert-circle" : "checkmark-circle"}
-                size={40}
-                color={modalConfig.isError ? "#ef4444" : "#80b48c"}
+            <View style={[styles.iconContainer, { backgroundColor: modalConfig.isError ? '#FEE2E2' : '#E0E7FF' }]}>
+              <Ionicons 
+                name={modalConfig.isError ? "alert-circle" : "checkmark-circle"} 
+                size={40} 
+                color={modalConfig.isError ? "#EF4444" : "#4F46E5"} 
               />
             </View>
             <Text style={styles.modalTitle}>{modalConfig.title}</Text>
             <Text style={styles.modalMessage}>{modalConfig.message}</Text>
-            <TouchableOpacity
-              style={[styles.modalButton, { backgroundColor: modalConfig.isError ? "#ef4444" : "#80b48c" }]}
+            <TouchableOpacity 
+              style={[styles.modalButton, { backgroundColor: modalConfig.isError ? "#EF4444" : "#4F46E5" }]} 
               onPress={() => setModalVisible(false)}
             >
               <Text style={styles.modalButtonText}>Опитай пак</Text>
@@ -99,53 +97,48 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     padding: 30,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f8f9fa',
   },
   title: {
-    fontSize: 34,
-    fontWeight: '900',
+    fontSize: 32,
+    fontWeight: 'bold',
     marginBottom: 40,
     textAlign: 'center',
-    color: '#333333',
-    letterSpacing: -0.5,
+    color: '#333',
   },
   input: {
     borderWidth: 1,
-    borderColor: '#c0cfd0',
-    padding: 18,
-    borderRadius: 16,
+    borderColor: '#ccc',
+    padding: 15,
+    borderRadius: 10,
     marginBottom: 20,
     backgroundColor: '#fff',
     fontSize: 16,
-    color: '#333333',
   },
   button: {
-    backgroundColor: '#80b48c',
-    paddingVertical: 18,
-    borderRadius: 16,
+    backgroundColor: '#4f46e5',
+    paddingVertical: 15,
+    borderRadius: 10,
     alignItems: 'center',
     marginBottom: 20,
-    elevation: 4,
-    shadowColor: '#80b48c',
-    shadowOpacity: 0.2,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
   },
   buttonText: {
     color: '#fff',
     fontSize: 18,
-    fontWeight: '900',
-    letterSpacing: 0.5,
+    fontWeight: 'bold',
   },
   registerText: {
     textAlign: 'center',
-    color: '#666666',
+    color: '#666',
     fontSize: 14,
-    fontWeight: '500',
   },
   registerLink: {
-    color: '#80b48c',
-    fontWeight: '900',
+    color: '#4f46e5',
+    fontWeight: 'bold',
   },
   modalOverlay: {
     flex: 1,
@@ -164,8 +157,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 10,
     elevation: 5,
-    borderWidth: 1,
-    borderColor: '#c0cfd0',
   },
   iconContainer: {
     width: 70,
@@ -178,13 +169,13 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#333333',
+    color: '#1F2937',
     marginBottom: 10,
     textAlign: 'center',
   },
   modalMessage: {
     fontSize: 16,
-    color: '#666666',
+    color: '#6B7280',
     textAlign: 'center',
     marginBottom: 25,
     lineHeight: 22,

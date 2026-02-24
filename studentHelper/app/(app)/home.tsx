@@ -7,35 +7,9 @@ import { useSession } from '../../ctx';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { API_URL } from '../../config/api';
-import Animated, {
-  FadeIn,
-  useSharedValue, useAnimatedStyle, withSpring
-} from 'react-native-reanimated';
-import { LinearGradient } from 'expo-linear-gradient';
+import Animated, { FadeInDown, FadeInRight, ZoomIn } from 'react-native-reanimated';
 
 const TOP_PADDING = Platform.OS === 'ios' ? 60 : (StatusBar.currentHeight || 0) + 10;
-
-function AnimatedLinkBtn({ onPress, color, icon, text }: { onPress: () => void, color: string, icon: any, text: string }) {
-  const scale = useSharedValue(1);
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }]
-  }));
-
-  return (
-    <TouchableOpacity
-      activeOpacity={0.7}
-      onPressIn={() => scale.value = withSpring(0.95)}
-      onPressOut={() => scale.value = withSpring(1)}
-      onPress={onPress}
-      style={{ flex: 1 }}
-    >
-      <Animated.View style={[styles.actionBtn, animatedStyle]}>
-        <Ionicons name={icon} size={24} color={color} />
-        <Text style={styles.actionText}>{text}</Text>
-      </Animated.View>
-    </TouchableOpacity>
-  );
-}
 
 export default function HomePage() {
   const { signOut, session } = useSession();
@@ -118,47 +92,51 @@ export default function HomePage() {
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <Animated.View entering={FadeIn.duration(600)} style={styles.header}>
+      <Animated.View entering={FadeInDown.duration(600).springify()} style={styles.header}>
         <View>
           <Text style={styles.greeting}>Здравейте, отново!</Text>
           <Text style={styles.subGreeting}>Имате {upcomingEvents.length} предстоящи задачи.</Text>
         </View>
         <TouchableOpacity style={styles.logoutBtn} onPress={handleSignOut}>
-          <Ionicons name="log-out-outline" size={22} color="#80b48c" />
+          <Ionicons name="log-out-outline" size={22} color="#ef4444" />
         </TouchableOpacity>
       </Animated.View>
 
-      <Animated.View entering={FadeIn.duration(600).delay(200)} style={styles.mainCard}>
-        <LinearGradient
-          colors={['#a0bfb9', '#c0cfd0']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.gradientCard}
-        >
-          <Text style={styles.cardLabel}>СЛЕДВАЩО СЪБИТИЕ</Text>
-          {loading ? (
-            <ActivityIndicator color="#fff" style={{ marginVertical: 20 }} />
-          ) : upcomingEvents.length > 0 ? (
-            <>
-              <Text style={styles.countdownDays}>
-                {upcomingEvents[0].daysLeft === 0 ? "ДНЕС" : `${upcomingEvents[0].daysLeft} Дена`}
-              </Text>
-              <Text style={styles.countdownTarget} numberOfLines={1}>{upcomingEvents[0].description}</Text>
-            </>
-          ) : (
-            <Text style={styles.countdownTarget}>Всичко е готово!</Text>
-          )}
-        </LinearGradient>
+      <Animated.View entering={ZoomIn.duration(500).delay(100)} style={styles.mainCard}>
+        <Text style={styles.cardLabel}>СЛЕДВАЩО СЪБИТИЕ</Text>
+        {loading ? (
+          <ActivityIndicator color="#fff" style={{ marginVertical: 20 }} />
+        ) : upcomingEvents.length > 0 ? (
+          <>
+            <Text style={styles.countdownDays}>
+              {upcomingEvents[0].daysLeft === 0 ? "ДНЕС" : `${upcomingEvents[0].daysLeft} Дена`}
+            </Text>
+            <Text style={styles.countdownTarget} numberOfLines={1}>{upcomingEvents[0].description}</Text>
+          </>
+        ) : (
+          <Text style={styles.countdownTarget}>Всичко е готово!</Text>
+        )}
       </Animated.View>
 
-      <Animated.View entering={FadeIn.duration(600).delay(400)} style={styles.actionGrid}>
-        <AnimatedLinkBtn onPress={() => router.push('/AiChat')} color="#80b48c" icon="chatbubble-ellipses" text="Задайте въпрос" />
-        <AnimatedLinkBtn onPress={() => router.push({ pathname: '/schoolwork', params: { mode: 'create' } })} color="#a0bfb9" icon="sparkles" text="Анализи" />
-        <AnimatedLinkBtn onPress={() => router.push('/calendar')} color="#c0cfd0" icon="calendar" text="Календар" />
+      <Animated.View entering={FadeInRight.duration(500).delay(200)} style={styles.actionGrid}>
+        <TouchableOpacity style={styles.actionBtn} onPress={() => router.push('/AiChat')}>
+          <Ionicons name="chatbubble-ellipses" size={24} color="#2563eb" />
+          <Text style={styles.actionText}>Задайте въпрос</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.actionBtn} onPress={() => router.push({ pathname: '/schoolwork', params: { mode: 'create' } })}>
+          <Ionicons name="sparkles" size={24} color="#8b5cf6" />
+          <Text style={styles.actionText}>Анализи</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.actionBtn} onPress={() => router.push('/calendar')}>
+          <Ionicons name="calendar" size={24} color="#10b981" />
+          <Text style={styles.actionText}>Календар</Text>
+        </TouchableOpacity>
       </Animated.View>
 
       {recents.length > 0 && (
-        <Animated.View entering={FadeIn.duration(600).delay(500)} style={styles.section}>
+        <Animated.View entering={FadeInRight.duration(600).delay(300)} style={styles.section}>
           <Text style={styles.sectionTitle}>Насоки и статистики</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingLeft: 20 }}>
             {recents.map((item, i) => (
@@ -182,10 +160,10 @@ export default function HomePage() {
         </Animated.View>
       )}
 
-      <Animated.View entering={FadeIn.duration(600).delay(600)} style={styles.listSection}>
+      <Animated.View entering={FadeInDown.duration(600).delay(400)} style={styles.listSection}>
         <Text style={styles.sectionTitle}>График</Text>
         {upcomingEvents.slice(1, 4).map((item, index) => (
-          <Animated.View key={index} entering={FadeIn.delay(index * 100 + 700)} style={styles.listItem}>
+          <Animated.View key={index} entering={FadeInDown.delay(index * 100 + 500)} style={styles.listItem}>
             <View style={{ flex: 1 }}>
               <Text style={styles.itemTitle} numberOfLines={1}>{item.description}</Text>
               <Text style={styles.itemDate}>{item.date}</Text>
@@ -198,7 +176,7 @@ export default function HomePage() {
       </Animated.View>
 
 
-      <Animated.View entering={FadeIn.duration(600).delay(800)} style={styles.scoreSection}>
+      <Animated.View entering={FadeInDown.duration(600).delay(600)} style={styles.scoreSection}>
         <Text style={styles.sectionTitle}>Представяне</Text>
         <View style={styles.scoreCard}>
           <View style={styles.scoreItem}>
@@ -219,55 +197,54 @@ export default function HomePage() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5', paddingTop: TOP_PADDING },
+  container: { flex: 1, backgroundColor: '#f8fafc', paddingTop: TOP_PADDING },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginBottom: 20 },
-  greeting: { fontSize: 24, fontWeight: 'bold', color: '#333333' },
-  subGreeting: { color: '#666666', fontSize: 14, fontWeight: '500' },
-  logoutBtn: { padding: 10, backgroundColor: '#fff', borderRadius: 14, elevation: 2 },
-  mainCard: { margin: 20, borderRadius: 32, overflow: 'hidden', elevation: 8, shadowColor: '#a0bfb9', shadowOpacity: 0.2, shadowRadius: 20, shadowOffset: { width: 0, height: 8 } },
-  gradientCard: { padding: 25 },
-  cardLabel: { color: 'rgba(255,255,255,0.9)', fontSize: 12, fontWeight: 'bold', letterSpacing: 1 },
+  greeting: { fontSize: 22, fontWeight: 'bold', color: '#1e293b' },
+  subGreeting: { color: '#64748b', fontSize: 14 },
+  logoutBtn: { padding: 10, backgroundColor: '#fee2e2', borderRadius: 12 },
+  mainCard: { margin: 20, padding: 25, backgroundColor: '#2563eb', borderRadius: 24, elevation: 4 },
+  cardLabel: { color: 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: 'bold' },
   countdownDays: { color: '#fff', fontSize: 42, fontWeight: '900', marginVertical: 5 },
-  countdownTarget: { color: '#fff', fontSize: 18, fontWeight: '600' },
+  countdownTarget: { color: '#fff', fontSize: 18 },
   actionGrid: { flexDirection: 'row', paddingHorizontal: 20, gap: 15 },
-  actionBtn: { flex: 1, backgroundColor: '#fff', padding: 20, borderRadius: 24, alignItems: 'center', elevation: 4, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10 },
-  actionText: { marginTop: 8, fontWeight: '700', color: '#333333', fontSize: 12 },
-  section: { marginTop: 30 },
+  actionBtn: { flex: 1, backgroundColor: '#fff', padding: 20, borderRadius: 20, alignItems: 'center', elevation: 2 },
+  actionText: { marginTop: 8, fontWeight: '600', color: '#1e293b', fontSize: 12 },
+  section: { marginTop: 25 },
   listSection: { paddingHorizontal: 20, paddingVertical: 10, marginTop: 10 },
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#333333', marginBottom: 15, paddingHorizontal: 20 },
-  listItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', padding: 18, borderRadius: 20, marginBottom: 12, elevation: 2, shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 10 },
-  itemTitle: { fontSize: 16, fontWeight: '700', color: '#333333' },
-  itemDate: { fontSize: 12, color: '#666666', marginTop: 2 },
-  daysTag: { backgroundColor: '#f0f4f2', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
-  daysTagText: { fontWeight: 'bold', color: '#80b48c', fontSize: 12 },
-  scoreSection: { paddingHorizontal: 20, marginBottom: 30 },
+  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#1e293b', marginBottom: 15, paddingHorizontal: 20 },
+  listItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', padding: 15, borderRadius: 16, marginBottom: 10 },
+  itemTitle: { fontSize: 16, fontWeight: '600', color: '#1e293b' },
+  itemDate: { fontSize: 12, color: '#94a3b8' },
+  daysTag: { backgroundColor: '#f1f5f9', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
+  daysTagText: { fontWeight: 'bold', color: '#64748b' },
+  scoreSection: { paddingHorizontal: 20, marginBottom: 20 },
   scoreCard: {
     flexDirection: 'row',
     backgroundColor: '#fff',
-    borderRadius: 24,
-    padding: 24,
-    elevation: 4,
+    borderRadius: 20,
+    padding: 20,
+    elevation: 2,
     shadowColor: '#000',
     shadowOpacity: 0.05,
-    shadowRadius: 15,
+    shadowRadius: 10,
   },
   scoreItem: { flex: 1, alignItems: 'center' },
-  scoreBorder: { borderLeftWidth: 1, borderLeftColor: '#f5f5f5' },
-  scoreValue: { fontSize: 26, fontWeight: '900', color: '#333333' },
-  scoreLabel: { fontSize: 12, color: '#666666', marginTop: 4, fontWeight: '600' },
+  scoreBorder: { borderLeftWidth: 1, borderLeftColor: '#f1f5f9' },
+  scoreValue: { fontSize: 24, fontWeight: 'bold', color: '#1e293b' },
+  scoreLabel: { fontSize: 12, color: '#64748b', marginTop: 4 },
   recentCard: {
-    width: 170,
+    width: 160,
     backgroundColor: '#fff',
-    borderRadius: 24,
-    padding: 18,
+    borderRadius: 20,
+    padding: 15,
     marginRight: 15,
-    elevation: 3,
+    elevation: 2,
     shadowColor: '#000',
     shadowOpacity: 0.05,
-    shadowRadius: 10
+    shadowRadius: 8
   },
   recentHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-  recentDate: { fontSize: 10, color: '#666666', fontWeight: 'bold' },
-  recentSubject: { fontSize: 14, fontWeight: 'bold', color: '#333333', marginBottom: 4 },
-  recentDesc: { fontSize: 12, color: '#666666' }
+  recentDate: { fontSize: 10, color: '#94a3b8', fontWeight: 'bold' },
+  recentSubject: { fontSize: 14, fontWeight: 'bold', color: '#1e293b', marginBottom: 4 },
+  recentDesc: { fontSize: 12, color: '#64748b' }
 });

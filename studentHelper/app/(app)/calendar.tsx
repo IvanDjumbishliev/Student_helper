@@ -5,7 +5,7 @@ import { Calendar } from 'react-native-calendars';
 import { API_URL } from '../../config/api';
 import { useSession } from '../../ctx';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, { Layout, FadeIn } from 'react-native-reanimated';
+import Animated, { FadeInDown, ZoomIn, FadeInRight, Layout, FadeIn } from 'react-native-reanimated';
 
 const { height } = Dimensions.get('window');
 const TOP_PADDING = Platform.OS === 'ios' ? 60 : (StatusBar.currentHeight || 0) + 10;
@@ -65,7 +65,7 @@ export default function CalendarScreen() {
     marked[selectedDate] = {
       ...marked[selectedDate],
       selected: true,
-      selectedColor: '#a0bfb9',
+      selectedColor: '#00adf5',
     };
     setMarkedDates(marked);
   };
@@ -209,8 +209,8 @@ export default function CalendarScreen() {
   };
 
   const getEventColor = (type: EventType) => {
-    const colors = { test: '#80b48c', project: '#a0bfb9', homework: '#c0cfd0' };
-    return colors[type] || '#a0bfb9';
+    const colors = { test: '#FF6B6B', project: '#FFA500', homework: '#4A90E2' };
+    return colors[type] || '#999';
   };
 
   const dayEvents = events[selectedDate] || [];
@@ -218,32 +218,20 @@ export default function CalendarScreen() {
   return (
     <View style={{ flex: 1 }}>
       <ScrollView style={styles.container}>
-        <Animated.View entering={FadeIn.duration(600)}>
+        <Animated.View entering={ZoomIn.duration(600)}>
           <Calendar
             markedDates={markedDates}
             onDayPress={handleDateSelect}
             theme={{
-              todayTextColor: '#80b48c',
-              selectedDayBackgroundColor: '#a0bfb9',
-              arrowColor: '#80b48c',
-              calendarBackground: '#fff',
-              textSectionTitleColor: '#333333',
-              selectedDayTextColor: '#ffffff',
-              dayTextColor: '#333333',
-              textDisabledColor: '#d9e1e8',
-              dotColor: '#a0bfb9',
-              selectedDotColor: '#ffffff',
-              monthTextColor: '#333333',
-              indicatorColor: '#80b48c',
-              textDayFontWeight: '500',
-              textMonthFontWeight: 'bold',
-              textDayHeaderFontWeight: 'bold',
+              todayTextColor: '#00adf5',
+              selectedDayBackgroundColor: '#00adf5',
+              arrowColor: '#00adf5',
             }}
           />
         </Animated.View>
 
         {showForm ? (
-          <Animated.View entering={FadeIn.duration(400)} style={styles.formContainer}>
+          <Animated.View entering={FadeInDown} style={styles.formContainer}>
             <Text style={styles.label}>Дата: {selectedDate}</Text>
             <View style={styles.typeButtonsContainer}>
               {(['homework', 'test', 'project'] as EventType[]).map((type) => (
@@ -275,17 +263,11 @@ export default function CalendarScreen() {
         ) : (
           <View>
             <View style={styles.buttonRow}>
-              <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#80b48c' }]} onPress={() => setShowForm(true)}>
-                <Ionicons name="add-circle" size={20} color="#fff" style={{ marginRight: 5 }} />
+              <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#00adf5' }]} onPress={() => setShowForm(true)}>
                 <Text style={styles.buttonText}>Ръчно добавяне</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#a0bfb9' }]} onPress={handleAIScan} disabled={isScanning}>
-                {isScanning ? <ActivityIndicator color="#fff" /> : (
-                  <>
-                    <Ionicons name="camera" size={20} color="#fff" style={{ marginRight: 5 }} />
-                    <Text style={styles.buttonText}>Снимка на графика</Text>
-                  </>
-                )}
+              <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#6200ee' }]} onPress={handleAIScan} disabled={isScanning}>
+                {isScanning ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Снимка на графика</Text>}
               </TouchableOpacity>
             </View>
 
@@ -293,7 +275,7 @@ export default function CalendarScreen() {
               <View style={styles.eventsListContainer}>
                 <Text style={styles.eventsTitle}>Събития за {selectedDate}:</Text>
                 {dayEvents.map((event, index) => (
-                  <Animated.View key={event.id} entering={FadeIn.delay(index * 100)} layout={Layout.springify()} style={[styles.eventItem, { borderLeftColor: getEventColor(event.type) }]}>
+                  <Animated.View key={event.id} entering={FadeInRight.delay(index * 100)} layout={Layout.springify()} style={[styles.eventItem, { borderLeftColor: getEventColor(event.type) }]}>
                     <View style={styles.eventContent}>
                       <View style={styles.eventTextContainer}>
                         <Text style={[styles.eventType, { color: getEventColor(event.type) }]}>{event.type.toUpperCase()}</Text>
@@ -318,14 +300,14 @@ export default function CalendarScreen() {
 
       {showSuccessPopup && (
         <Animated.View entering={FadeIn} style={styles.popupOverlay}>
-          <Animated.View entering={FadeIn.duration(400)} style={styles.popupCard}>
+          <Animated.View entering={FadeInDown.springify()} style={styles.popupCard}>
             <View style={styles.popupHeader}>
               <Ionicons name="checkmark-circle" size={28} color="#10b981" />
               <Text style={styles.popupTitle}>Успешно извличане!</Text>
             </View>
             <Text style={styles.popupSubtitle}>
-              {extractedResults.length > 0
-                ? `Открихме ${extractedResults.length} нови събития в графика:`
+              {extractedResults.length > 0 
+                ? `Открихме ${extractedResults.length} нови събития в графика:` 
                 : "Не бяха открити събития в тази снимка."}
             </Text>
             <ScrollView style={styles.popupList} showsVerticalScrollIndicator={false}>
@@ -350,38 +332,38 @@ export default function CalendarScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5', paddingTop: TOP_PADDING },
-  buttonRow: { flexDirection: 'row', paddingHorizontal: 20, marginTop: 20, gap: 12 },
-  actionButton: { flex: 1, paddingVertical: 16, borderRadius: 16, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', elevation: 4, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10 },
-  buttonText: { color: '#fff', fontWeight: '900', letterSpacing: 0.5 },
-  formContainer: { padding: 25, backgroundColor: '#fff', marginTop: 20, marginHorizontal: 20, borderRadius: 24, elevation: 5, borderWidth: 1, borderColor: '#c0cfd0' },
-  label: { fontSize: 16, fontWeight: '900', marginBottom: 15, color: '#333333' },
-  typeButtonsContainer: { flexDirection: 'row', gap: 10, marginBottom: 20 },
-  typeButton: { flex: 1, paddingVertical: 14, borderRadius: 14, alignItems: 'center' },
-  input: { borderWidth: 1, borderColor: '#c0cfd0', borderRadius: 14, padding: 15, backgroundColor: '#f1f5f9', minHeight: 100, textAlignVertical: 'top', color: '#333333', fontSize: 16 },
-  submitButton: { backgroundColor: '#80b48c', paddingVertical: 16, borderRadius: 16, alignItems: 'center', marginTop: 15, elevation: 3 },
-  submitButtonText: { color: '#fff', fontWeight: '900', fontSize: 16 },
-  cancelButton: { backgroundColor: '#fff', paddingVertical: 16, borderRadius: 16, alignItems: 'center', marginTop: 10, borderWidth: 1, borderColor: '#c0cfd0' },
-  cancelButtonText: { color: '#666666', fontWeight: '900', fontSize: 16 },
-  eventsListContainer: { marginTop: 25, paddingHorizontal: 20, paddingBottom: 60 },
-  eventsTitle: { fontSize: 18, fontWeight: '900', marginBottom: 15, color: '#333333' },
-  eventItem: { backgroundColor: '#fff', borderRadius: 20, marginBottom: 12, borderLeftWidth: 6, elevation: 3, shadowOpacity: 0.05, shadowRadius: 10, overflow: 'hidden' },
-  eventContent: { flexDirection: 'row', justifyContent: 'space-between', padding: 18 },
+  container: { flex: 1, backgroundColor: '#fff', paddingTop: TOP_PADDING },
+  buttonRow: { flexDirection: 'row', paddingHorizontal: 20, marginTop: 20, gap: 10 },
+  actionButton: { flex: 1, paddingVertical: 14, borderRadius: 8, alignItems: 'center' },
+  buttonText: { color: '#fff', fontWeight: 'bold' },
+  formContainer: { padding: 20, backgroundColor: '#f5f5f5', marginTop: 20 },
+  label: { fontSize: 16, fontWeight: '600', marginBottom: 10 },
+  typeButtonsContainer: { flexDirection: 'row', gap: 10, marginBottom: 15 },
+  typeButton: { flex: 1, paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
+  input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, backgroundColor: '#fff', minHeight: 80, textAlignVertical: 'top' },
+  submitButton: { backgroundColor: '#00adf5', paddingVertical: 14, borderRadius: 8, alignItems: 'center', marginTop: 10 },
+  submitButtonText: { color: '#fff', fontWeight: 'bold' },
+  cancelButton: { backgroundColor: '#ccc', paddingVertical: 14, borderRadius: 8, alignItems: 'center', marginTop: 10 },
+  cancelButtonText: { color: '#333', fontWeight: 'bold' },
+  eventsListContainer: { marginTop: 20, paddingHorizontal: 20, paddingBottom: 40 },
+  eventsTitle: { fontSize: 16, fontWeight: 'bold', marginBottom: 12 },
+  eventItem: { backgroundColor: '#fff', borderRadius: 12, marginBottom: 12, borderLeftWidth: 5, elevation: 2, shadowOpacity: 0.1, overflow: 'hidden' },
+  eventContent: { flexDirection: 'row', justifyContent: 'space-between', padding: 16 },
   eventTextContainer: { flex: 1 },
-  eventType: { fontSize: 11, fontWeight: '900', letterSpacing: 0.5 },
-  eventDescription: { fontSize: 15, color: '#333333', fontWeight: '600', marginTop: 2 },
-  eventActions: { flexDirection: 'row', gap: 10 },
-  actionIconButton: { padding: 10, borderRadius: 14, backgroundColor: '#f1f5f9' },
-  popupOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', zIndex: 9999, padding: 20 },
-  popupCard: { backgroundColor: '#ffffff', width: '100%', borderRadius: 32, padding: 25, maxHeight: height * 0.7, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.3, shadowRadius: 20, elevation: 15, borderWidth: 1, borderColor: '#c0cfd0' },
-  popupHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 15 },
-  popupTitle: { fontSize: 24, fontWeight: '900', color: '#333333' },
-  popupSubtitle: { color: '#666666', fontSize: 15, marginBottom: 20, lineHeight: 22, fontWeight: '500' },
+  eventType: { fontSize: 10, fontWeight: '800' },
+  eventDescription: { fontSize: 15, color: '#2d3748' },
+  eventActions: { flexDirection: 'row', gap: 8 },
+  actionIconButton: { padding: 8, borderRadius: 20, backgroundColor: '#f7fafc' },
+  popupOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', zIndex: 9999, padding: 20 },
+  popupCard: { backgroundColor: '#fff', width: '100%', borderRadius: 24, padding: 24, maxHeight: height * 0.7, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.3, shadowRadius: 20, elevation: 15 },
+  popupHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
+  popupTitle: { fontSize: 22, fontWeight: 'bold', color: '#1e293b' },
+  popupSubtitle: { color: '#64748b', fontSize: 15, marginBottom: 20, lineHeight: 22 },
   popupList: { marginBottom: 20 },
-  popupItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', gap: 15 },
-  typeIndicator: { width: 5, height: 40, borderRadius: 3 },
-  popupItemDate: { fontSize: 12, color: '#666666', fontWeight: 'bold', marginBottom: 2 },
-  popupItemDesc: { fontSize: 15, color: '#333333', fontWeight: '700' },
-  popupButton: { backgroundColor: '#80b48c', paddingVertical: 18, borderRadius: 18, alignItems: 'center', elevation: 4 },
-  popupButtonText: { color: '#fff', fontWeight: '900', fontSize: 18 }
+  popupItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', gap: 15 },
+  typeIndicator: { width: 4, height: 35, borderRadius: 2 },
+  popupItemDate: { fontSize: 12, color: '#94a3b8', fontWeight: 'bold', marginBottom: 2 },
+  popupItemDesc: { fontSize: 15, color: '#1e293b', fontWeight: '500' },
+  popupButton: { backgroundColor: '#6200ee', paddingVertical: 16, borderRadius: 14, alignItems: 'center' },
+  popupButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 }
 });

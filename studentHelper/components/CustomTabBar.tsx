@@ -58,7 +58,7 @@ const CustomTabBar = ({ state, descriptors, navigation }: BottomTabBarProps) => 
                                 <Ionicons
                                     name={iconName}
                                     size={22}
-                                    color={isFocused ? '#fff' : '#80b48c'}
+                                    color={isFocused ? '#fff' : '#64748b'}
                                 />
                             </Animated.View>
                             {isFocused && (
@@ -107,14 +107,12 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     activeIconContainer: {
-        backgroundColor: '#a0bfb9',
-        padding: 10,
-        borderRadius: 16,
+        backgroundColor: '#4f46e5',
     },
     tabLabel: {
         fontSize: 12,
         fontWeight: '700',
-        color: '#a0bfb9',
+        color: '#4f46e5',
         marginLeft: 5,
     },
 });

@@ -29,6 +29,9 @@ app.config["JWT_SECRET_KEY"] = os.environ.get('JWT_SECRET_KEY')
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(days=7)
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     "poolclass": NullPool,
+    "connect_args": {
+        "prepare_threshold": None
+    }
 }
 
 db = SQLAlchemy(app)
@@ -389,7 +392,7 @@ def handle_chat():
                 {context}.
                 IMPORTANT: Always format mathematical formulas using standard Markdown code blocks or inline backticks. 
                 Example: `x = y^2`. 
-                Strictly avoid using LaTeX symbols like $, $$, or \\[ \\]. 
+                Strictly avoid using LaTeX symbols like $, $$, or \[ \]. 
                 """
             ),
             history=gemini_history
