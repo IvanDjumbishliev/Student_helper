@@ -54,10 +54,15 @@ export default function HomePage() {
   );
 
   const fetchRecents = async () => {
+    if (!session) return;
     try {
       const res = await fetch(`${API_URL}/schoolwork/recents`, {
         headers: { 'Authorization': `Bearer ${session}` }
       });
+      if (res.status === 401 || res.status === 422) {
+        signOut();
+        return;
+      }
       const data = await res.json();
       if (res.ok) setRecents(data);
     } catch (e) {
@@ -66,10 +71,15 @@ export default function HomePage() {
   };
 
   const fetchUpcomingEvents = async () => {
+    if (!session) return;
     try {
       const response = await fetch(`${API_URL}/events`, {
         headers: { 'Authorization': `Bearer ${session}` }
       });
+      if (response.status === 401 || response.status === 422) {
+        signOut();
+        return;
+      }
       const data = await response.json();
 
       const today = new Date();
@@ -100,10 +110,15 @@ export default function HomePage() {
   };
 
   const fetchScores = async () => {
+    if (!session) return;
     try {
       const response = await fetch(`${API_URL}/recent-scores`, {
         headers: { 'Authorization': `Bearer ${session}` }
       });
+      if (response.status === 401 || response.status === 422) {
+        signOut();
+        return;
+      }
       const data = await response.json();
       setScores(data);
     } catch (e) {

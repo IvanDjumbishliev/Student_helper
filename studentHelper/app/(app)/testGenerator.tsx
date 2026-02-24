@@ -13,7 +13,7 @@ import Animated, { Layout, FadeIn } from 'react-native-reanimated';
 const TOP_PADDING = Platform.OS === 'ios' ? 50 : (StatusBar.currentHeight || 0) + 10;
 
 export default function TestGeneratorScreen() {
-  const { session } = useSession();
+  const { session, signOut } = useSession();
 
   const [upcomingTests, setUpcomingTests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,10 +37,15 @@ export default function TestGeneratorScreen() {
   );
 
   const fetchTests = async () => {
+    if (!session) return;
     try {
       const response = await fetch(`${API_URL}/events`, {
         headers: { 'Authorization': `Bearer ${session}` }
       });
+      if (response.status === 401 || response.status === 422) {
+        signOut();
+        return;
+      }
       const data = await response.json();
 
       const tests = Object.keys(data).flatMap(date =>
@@ -100,6 +105,12 @@ export default function TestGeneratorScreen() {
           images: images
         }),
       });
+
+      if (response.status === 401 || response.status === 422) {
+        signOut();
+        return;
+      }
+
       const data = await response.json();
       setQuiz(data.questions);
     } catch (e) {
@@ -120,7 +131,7 @@ export default function TestGeneratorScreen() {
     setScore(correctCount);
 
     try {
-      await fetch(`${API_URL}/save-score`, {
+      const response = await fetch(`${API_URL}/save-score`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -132,6 +143,10 @@ export default function TestGeneratorScreen() {
           total: quiz?.length
         })
       });
+      if (response.status === 401 || response.status === 422) {
+        signOut();
+        return;
+      }
     } catch (error) {
       console.error("Failed to save score:", error);
     }

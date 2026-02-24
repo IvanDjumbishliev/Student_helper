@@ -28,7 +28,7 @@ interface ChatSession {
 }
 
 export default function ExamTutorScreen() {
-  const { session } = useSession();
+  const { session, signOut } = useSession();
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [isHistoryVisible, setIsHistoryVisible] = useState(false);
@@ -44,10 +44,15 @@ export default function ExamTutorScreen() {
   }, []);
 
   const fetchChatHistory = async () => {
+    if (!session) return;
     try {
       const response = await fetch(`${API_URL}/chat/history`, {
         headers: { 'Authorization': `Bearer ${session}` }
       });
+      if (response.status === 401 || response.status === 422) {
+        signOut();
+        return;
+      }
       const data = await response.json();
       if (response.ok && Array.isArray(data)) {
         setSessions(data);
@@ -124,6 +129,7 @@ export default function ExamTutorScreen() {
   };
 
   const sendToAI = async (sessionId: string, imageB64?: string | null, text?: string) => {
+    if (!session) return;
     setLoading(true);
     try {
       const response = await fetch(`${API_URL}/chat/message`, {
@@ -134,6 +140,11 @@ export default function ExamTutorScreen() {
         },
         body: JSON.stringify({ session_id: sessionId, image: imageB64, message: text }),
       });
+
+      if (response.status === 401 || response.status === 422) {
+        signOut();
+        return;
+      }
 
       const data = await response.json();
       if (response.ok) {

@@ -12,7 +12,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeIn } from 'react-native-reanimated';
 
 export default function SchoolworkAnalysisScreen() {
-    const { session } = useSession();
+    const { session, signOut } = useSession();
     const params = useLocalSearchParams();
     const router = useRouter();
 
@@ -48,12 +48,17 @@ export default function SchoolworkAnalysisScreen() {
 
     useEffect(() => {
         const loadAnalysis = async (id: string) => {
+            if (!session) return;
             setMode('view');
             setLoadingView(true);
             try {
                 const res = await fetch(`${API_URL}/schoolwork/${id}`, {
                     headers: { 'Authorization': `Bearer ${session}` }
                 });
+                if (res.status === 401 || res.status === 422) {
+                    signOut();
+                    return;
+                }
                 const data = await res.json();
                 if (res.ok) {
                     setAnalysisContent(data.content);
@@ -109,6 +114,11 @@ export default function SchoolworkAnalysisScreen() {
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session}` },
                 body: JSON.stringify(payload)
             });
+
+            if (response.status === 401 || response.status === 422) {
+                signOut();
+                return;
+            }
 
             const data = await response.json();
             if (response.ok) {

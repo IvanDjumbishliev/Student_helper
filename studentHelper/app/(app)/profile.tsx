@@ -36,12 +36,17 @@ export default function Profile() {
   const [activities, setActivities] = useState<Activity[]>([]);
 
   const fetchProfileData = useCallback(async () => {
+    if (!session) return;
     setLoading(true);
     try {
       const headers = { Authorization: `Bearer ${session}` };
 
       // 1. Fetch User Info
       const infoRes = await fetch(`${API_URL}/auth/myInfo`, { headers });
+      if (infoRes.status === 401 || infoRes.status === 422) {
+        signOut();
+        return;
+      }
       const infoData = await infoRes.json();
       if (infoRes.ok) {
         setEmail(infoData.email);
@@ -102,6 +107,11 @@ export default function Profile() {
         body: JSON.stringify({ password: newPassword }),
       });
 
+      if (res.status === 401 || res.status === 422) {
+        signOut();
+        return;
+      }
+
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Update failed');
 
@@ -141,6 +151,11 @@ export default function Profile() {
           body: JSON.stringify({ profile_pic: base64Image }),
         });
 
+        if (res.status === 401 || res.status === 422) {
+          signOut();
+          return;
+        }
+
         if (res.ok) {
           setProfilePic(base64Image);
           Alert.alert('Success', 'Profile picture updated successfully');
@@ -155,11 +170,13 @@ export default function Profile() {
     }
   };
 
-  return (
-    <View style={styles.loadingContainer}>
-      <ActivityIndicator size="large" color="#a0bfb9" />
-    </View>
-  );
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#a0bfb9" />
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>

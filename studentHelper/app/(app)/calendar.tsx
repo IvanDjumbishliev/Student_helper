@@ -19,7 +19,7 @@ interface CalendarEvent {
 }
 
 export default function CalendarScreen() {
-  const { session } = useSession();
+  const { session, signOut } = useSession();
   const [isScanning, setIsScanning] = useState(false);
   const [markedDates, setMarkedDates] = useState({});
   const [events, setEvents] = useState<Record<string, CalendarEvent[]>>({});
@@ -37,6 +37,7 @@ export default function CalendarScreen() {
   }, [session]);
 
   const fetchEvents = async () => {
+    if (!session) return;
     try {
       const response = await fetch(`${API_URL}/events`, {
         method: 'GET',
@@ -45,6 +46,10 @@ export default function CalendarScreen() {
           'Authorization': `Bearer ${session}`
         }
       });
+      if (response.status === 401 || response.status === 422) {
+        signOut();
+        return;
+      }
       const data = await response.json();
       setEvents(data || {});
       updateMarkedDates(data || {});
@@ -93,6 +98,10 @@ export default function CalendarScreen() {
           },
           body: JSON.stringify({ image: result.assets[0].base64 }),
         });
+        if (response.status === 401 || response.status === 422) {
+          signOut();
+          return;
+        }
         const data = await response.json();
         if (response.ok) {
           setExtractedResults(data.events || []);
@@ -123,6 +132,10 @@ export default function CalendarScreen() {
           description: eventToDelete.description
         }),
       });
+      if (response.status === 401 || response.status === 422) {
+        signOut();
+        return;
+      }
       if (response.ok) {
         fetchEvents();
         if (editingEvent?.id === eventToDelete.id) handleCloseForm();
@@ -177,6 +190,11 @@ export default function CalendarScreen() {
           description: description.trim(),
         }),
       });
+
+      if (response.status === 401 || response.status === 422) {
+        signOut();
+        return;
+      }
 
       if (response.ok) {
         handleCloseForm();
