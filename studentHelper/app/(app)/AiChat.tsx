@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { API_URL } from '../../config/api';
 import { useSession } from '../../ctx';
 import Markdown from 'react-native-markdown-display'
-import Animated, { FadeInUp, SlideInLeft, SlideInRight, Layout } from 'react-native-reanimated';
+import Animated, { FadeIn, Layout } from 'react-native-reanimated';
 
 const TOP_PADDING = Platform.OS === 'ios' ? 60 : (StatusBar.currentHeight || 0) + 10;
 
@@ -161,16 +161,16 @@ export default function ExamTutorScreen() {
 
       <View style={styles.header}>
         <TouchableOpacity onPress={() => setIsHistoryVisible(true)}>
-          <Ionicons name="menu-outline" size={30} color="#1e293b" />
+          <Ionicons name="menu-outline" size={30} color="#333333" />
         </TouchableOpacity>
         <TouchableOpacity onPress={startNewChat}>
-          <Ionicons name="add-circle-outline" size={30} color="#2563eb" />
+          <Ionicons name="add-circle-outline" size={30} color="#80b48c" />
         </TouchableOpacity>
       </View>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20} style={{ flex: 1 }}>
         <ScrollView ref={scrollViewRef} onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })} contentContainerStyle={styles.chatList}>
           {!currentChat || currentChat.messages.length === 0 ? (
-            <Animated.View entering={FadeInUp.duration(600).springify()} style={styles.welcomeContainer}>
+            <Animated.View entering={FadeIn.duration(600)} style={styles.welcomeContainer}>
               <Ionicons name="chatbubbles-outline" size={80} color="#cbd5e1" />
               <Text style={styles.welcomeTitle}>Нов разговор</Text>
               <Text style={styles.welcomeSub}>Изпратете съобщение!</Text>
@@ -179,7 +179,7 @@ export default function ExamTutorScreen() {
             currentChat.messages.map((msg) => (
               <Animated.View
                 key={msg.id}
-                entering={msg.role === 'user' ? SlideInRight.duration(400) : SlideInLeft.duration(400)}
+                entering={FadeIn.duration(400)}
                 layout={Layout.springify()}
                 style={[styles.msgWrapper, msg.role === 'user' ? styles.userRow : styles.aiRow]}
               >
@@ -192,7 +192,7 @@ export default function ExamTutorScreen() {
               </Animated.View>
             ))
           )}
-          {loading && <ActivityIndicator color="#2563eb" style={{ alignSelf: 'flex-start', marginLeft: 20, marginTop: 10 }} />}
+          {loading && <ActivityIndicator color="#80b48c" style={{ alignSelf: 'flex-start', marginLeft: 20, marginTop: 10 }} />}
         </ScrollView>
 
         {selectedImage && (
@@ -203,7 +203,7 @@ export default function ExamTutorScreen() {
             </TouchableOpacity>
           </View>
         )}
-        <Animated.View entering={FadeInUp.duration(500).delay(200)} style={styles.inputContainer}>
+        <Animated.View entering={FadeIn.duration(500).delay(200)} style={styles.inputContainer}>
           <TouchableOpacity onPress={handlePickImage} style={styles.attachBtn}>
             <Ionicons name="image-outline" size={28} color="#64748b" />
           </TouchableOpacity>
@@ -232,9 +232,9 @@ export default function ExamTutorScreen() {
                   style={[styles.historyCard, currentSessionId === item.id && styles.activeCard]}
                   onPress={() => { setCurrentSessionId(item.id); setIsHistoryVisible(false); }}
                 >
-                  <Ionicons name="chatbox-ellipses-outline" size={20} color="#64748b" />
+                  <Ionicons name="chatbox-ellipses-outline" size={20} color="#80b48c" />
                   <View style={{ marginLeft: 12, flex: 1 }}>
-                    <Text style={styles.historyTitle} numberOfLines={1}>{item.title}</Text>
+                    <Text style={styles.historyTitle} numberOfLines={1}>{item.title === 'New Chat' ? 'Нов разговор' : item.title}</Text>
                     <Text style={styles.historyDate}>{item.date}</Text>
                   </View>
                 </TouchableOpacity>
@@ -252,37 +252,37 @@ export default function ExamTutorScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc', paddingTop: TOP_PADDING },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, height: 60, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
-  headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#1e293b' },
+  container: { flex: 1, backgroundColor: '#f5f5f5', paddingTop: TOP_PADDING },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, height: 60, borderBottomWidth: 1, borderBottomColor: '#c0cfd0', backgroundColor: '#fff' },
+  headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#333333' },
   chatList: { padding: 15, paddingBottom: 30 },
   msgWrapper: { marginBottom: 15, width: '100%' },
   userRow: { alignItems: 'flex-end' },
   aiRow: { alignItems: 'flex-start' },
-  bubble: { maxWidth: '85%', padding: 12, borderRadius: 18 },
-  userBubble: { backgroundColor: '#2563eb' },
-  aiBubble: { backgroundColor: '#fff', borderBottomLeftRadius: 4, elevation: 1 },
+  bubble: { maxWidth: '85%', padding: 12, borderRadius: 20 },
+  userBubble: { backgroundColor: '#80b48c' },
+  aiBubble: { backgroundColor: '#fff', borderBottomLeftRadius: 4, elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 5, borderWidth: 1, borderColor: '#f0f4f2' },
   msgText: { fontSize: 16, lineHeight: 22 },
   userText: { color: '#fff' },
-  aiText: { color: '#334155' },
+  aiText: { color: '#333333' },
   chatImage: { width: 200, height: 150, borderRadius: 10, marginBottom: 8 },
   imagePreviewContainer: { padding: 10, backgroundColor: '#fff', flexDirection: 'row', alignItems: 'center' },
   smallPreview: { width: 60, height: 60, borderRadius: 8 },
   removeImage: { position: 'absolute', top: 5, left: 65 },
-  inputContainer: { flexDirection: 'row', padding: 12, backgroundColor: '#fff', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#f1f5f9' },
+  inputContainer: { flexDirection: 'row', padding: 12, backgroundColor: '#fff', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#c0cfd0' },
   attachBtn: { marginRight: 10 },
-  textInput: { flex: 1, backgroundColor: '#f1f5f9', borderRadius: 20, paddingHorizontal: 15, paddingVertical: 8, fontSize: 16, maxHeight: 100 },
-  sendIcon: { backgroundColor: '#2563eb', width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginLeft: 10 },
+  textInput: { flex: 1, backgroundColor: '#f1f5f9', borderRadius: 24, paddingHorizontal: 15, paddingVertical: 10, fontSize: 16, maxHeight: 100, borderWidth: 1, borderColor: '#c0cfd0', color: '#333333' },
+  sendIcon: { backgroundColor: '#80b48c', width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginLeft: 10 },
   welcomeContainer: { alignItems: 'center', marginTop: 120, paddingHorizontal: 40 },
-  welcomeTitle: { fontSize: 22, fontWeight: 'bold', color: '#1e293b', marginTop: 15 },
-  welcomeSub: { textAlign: 'center', color: '#64748b', marginTop: 8 },
+  welcomeTitle: { fontSize: 24, fontWeight: '900', color: '#333333', marginTop: 15 },
+  welcomeSub: { textAlign: 'center', color: '#666666', marginTop: 8, fontWeight: '500' },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', flexDirection: 'row' },
-  sidebar: { width: '75%', backgroundColor: '#fff', padding: 25, paddingTop: 50 },
-  sidebarHeader: { fontSize: 22, fontWeight: 'bold', marginBottom: 20 },
-  historyCard: { flexDirection: 'row', padding: 12, borderRadius: 12, marginBottom: 5 },
-  activeCard: { backgroundColor: '#eff6ff' },
-  historyTitle: { fontWeight: '600', color: '#1e293b' },
-  historyDate: { fontSize: 11, color: '#94a3b8' },
+  sidebar: { width: '75%', backgroundColor: '#f5f5f5', padding: 25, paddingTop: 50 },
+  sidebarHeader: { fontSize: 24, fontWeight: '900', marginBottom: 20, color: '#333333' },
+  historyCard: { flexDirection: 'row', padding: 15, borderRadius: 16, marginBottom: 8, backgroundColor: '#fff', elevation: 1 },
+  activeCard: { backgroundColor: '#c0cfd0', borderWidth: 1, borderColor: '#80b48c' },
+  historyTitle: { fontWeight: '700', color: '#333333' },
+  historyDate: { fontSize: 11, color: '#666666' },
   closeSidebar: { marginTop: 'auto', alignSelf: 'center', padding: 15 },
-  closeText: { color: '#64748b', fontWeight: 'bold' }
+  closeText: { color: '#80b48c', fontWeight: '900', fontSize: 16 }
 });
