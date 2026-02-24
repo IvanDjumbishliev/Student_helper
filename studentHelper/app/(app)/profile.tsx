@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { View, Text, TextInput, Alert, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Dimensions } from 'react-native';
 import { useSession } from '../../ctx';
 import { API_URL } from '../../config/api';
-import Animated, { FadeInDown, FadeInRight } from 'react-native-reanimated';
+import Animated, { FadeIn } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
@@ -83,12 +83,12 @@ export default function Profile() {
 
   const changePassword = async () => {
     if (!newPassword || !confirmPassword) {
-      Alert.alert('Error', 'Please fill in both password fields');
+      Alert.alert('Грешка', 'Моля попълнете двете полета за парола');
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
+      Alert.alert('Грешка', 'Паролите не съвпадат');
       return;
     }
 
@@ -155,60 +155,58 @@ export default function Profile() {
     }
   };
 
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#4f46e5" />
-      </View>
-    );
-  }
+  return (
+    <View style={styles.loadingContainer}>
+      <ActivityIndicator size="large" color="#a0bfb9" />
+    </View>
+  );
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <LinearGradient colors={['#4f46e5', '#3730a3']} style={styles.header}>
-        <Animated.View entering={FadeInDown.duration(600)} style={styles.headerContent}>
+      <LinearGradient colors={['#a0bfb9', '#c0cfd0']} style={styles.header}>
+        <Animated.View entering={FadeIn.duration(600)} style={styles.headerContent}>
           <TouchableOpacity
             style={styles.avatarContainer}
             onPress={pickImage}
             disabled={uploading}
           >
             {uploading ? (
-              <ActivityIndicator color="#4f46e5" />
+              <ActivityIndicator color="#a0bfb9" />
             ) : profilePic ? (
-              <Image source={{ uri: profilePic }} style={styles.avatarImage} />
+              <Image source={{ uri: profilePic! }} style={styles.avatarImage} />
             ) : (
-              <Ionicons name="person" size={40} color="#4f46e5" />
+              <Ionicons name="person" size={40} color="#c0cfd0" />
             )}
             <View style={styles.editIconContainer}>
               <Ionicons name="camera" size={16} color="#fff" />
             </View>
           </TouchableOpacity>
           <Text style={styles.userEmail}>{email}</Text>
-          <Text style={styles.userBadge}>Scholar Plan</Text>
+          <Text style={styles.userBadge}>Ученик</Text>
         </Animated.View>
       </LinearGradient>
 
       <View style={styles.content}>
         {/* Stats Grid */}
-        <Animated.View entering={FadeInDown.delay(200).duration(600)} style={styles.statsGrid}>
-          <StatCard title="Tests" value={stats.total_tests} icon="document-text" color="#6366f1" />
-          <StatCard title="Avg Score" value={`${stats.avg_percentage}%`} icon="trending-up" color="#10b981" />
-          <StatCard title="Analyses" value={stats.total_analyses} icon="sparkles" color="#f59e0b" />
-          <StatCard title="Events" value={stats.total_events} icon="calendar" color="#ef4444" />
+        <Animated.View entering={FadeIn.delay(200).duration(600)} style={styles.statsGrid}>
+          <StatCard title="Тестове" value={stats.total_tests} icon="document-text" color="#80b48c" />
+          <StatCard title="Ср. Оценка" value={`${stats.avg_percentage}%`} icon="trending-up" color="#a0bfb9" />
+          <StatCard title="Анализи" value={stats.total_analyses} icon="sparkles" color="#c0cfd0" />
+          <StatCard title="Събития" value={stats.total_events} icon="calendar" color="#a0bfb9" />
         </Animated.View>
 
         {/* Recent Activity */}
-        <Animated.Text entering={FadeInDown.delay(300).duration(600)} style={styles.sectionTitle}>Скорошна дейност</Animated.Text>
+        <Animated.Text entering={FadeIn.delay(300).duration(600)} style={styles.sectionTitle}>Скорошна дейност</Animated.Text>
         {activities.length > 0 ? (
           <View style={styles.activityList}>
             {activities.map((act, index) => (
-              <Animated.View key={act.id} entering={FadeInRight.delay(400 + index * 100)}>
+              <Animated.View key={act.id} entering={FadeIn.delay(400 + index * 100)}>
                 <View style={styles.activityItem}>
-                  <View style={[styles.activityIcon, { backgroundColor: '#e0e7ff' }]}>
-                    <Ionicons name="book" size={20} color="#4f46e5" />
+                  <View style={[styles.activityIcon, { backgroundColor: '#f0f4f2' }]}>
+                    <Ionicons name="book" size={20} color="#80b48c" />
                   </View>
                   <View style={styles.activityInfo}>
-                    <Text style={styles.activityType}>{act.type.replace('_', ' ').toUpperCase()}</Text>
+                    <Text style={styles.activityType}>{act.type.replace('_', ' ').toUpperCase() === 'ESSAY' ? 'ЕСЕ' : act.type.replace('_', ' ').toUpperCase()}</Text>
                     <Text style={styles.activitySubject}>{act.subject}</Text>
                   </View>
                   <Text style={styles.activityDate}>{act.date}</Text>
@@ -221,18 +219,20 @@ export default function Profile() {
         )}
 
         {/* Settings */}
-        <Animated.Text entering={FadeInDown.delay(500).duration(600)} style={styles.sectionTitle}>Настройки на акаунта</Animated.Text>
-        <Animated.View entering={FadeInDown.delay(600).duration(600)} style={styles.settingsCard}>
+        <Animated.Text entering={FadeIn.delay(500).duration(600)} style={styles.sectionTitle}>Настройки на акаунта</Animated.Text>
+        <Animated.View entering={FadeIn.delay(600).duration(600)} style={styles.settingsCard}>
           <Text style={styles.label}>Промяна на паролата</Text>
           <TextInput
-            placeholder="New password"
+            placeholder="Нова парола"
+            placeholderTextColor="#94a3b8"
             secureTextEntry
             value={newPassword}
             onChangeText={setNewPassword}
             style={styles.input}
           />
           <TextInput
-            placeholder="Confirm new password"
+            placeholder="Потвърдете парола"
+            placeholderTextColor="#94a3b8"
             secureTextEntry
             value={confirmPassword}
             onChangeText={setConfirmPassword}
@@ -269,18 +269,19 @@ function StatCard({ title, value, icon, color }: { title: string; value: string 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: '#f5f5f5',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#f5f5f5',
   },
   header: {
     paddingTop: 80,
     paddingBottom: 40,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
     alignItems: 'center',
   },
   headerContent: {
@@ -309,7 +310,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: -2,
     bottom: -2,
-    backgroundColor: '#4f46e5',
+    backgroundColor: '#80b48c',
     width: 28,
     height: 28,
     borderRadius: 14,
@@ -363,17 +364,17 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#1e293b',
+    color: '#333333',
   },
   statTitle: {
     fontSize: 13,
-    color: '#64748b',
+    color: '#666666',
     marginTop: 2,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1e293b',
+    color: '#333333',
     marginTop: 10,
     marginBottom: 15,
   },
@@ -406,13 +407,13 @@ const styles = StyleSheet.create({
   activityType: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#64748b',
+    color: '#666666',
     letterSpacing: 0.5,
   },
   activitySubject: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#1e293b',
+    color: '#333333',
   },
   activityDate: {
     fontSize: 12,
@@ -437,30 +438,35 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#64748b',
+    color: '#666666',
     marginBottom: 15,
   },
   input: {
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 12,
+    borderColor: '#c0cfd0',
+    borderRadius: 14,
     padding: 15,
     marginBottom: 15,
     fontSize: 15,
-    color: '#1e293b',
+    color: '#333333',
   },
   button: {
-    backgroundColor: '#4f46e5',
-    padding: 15,
-    borderRadius: 12,
+    backgroundColor: '#80b48c',
+    padding: 18,
+    borderRadius: 16,
     alignItems: 'center',
     marginTop: 5,
+    elevation: 4,
+    shadowColor: '#80b48c',
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
   },
   buttonText: {
     color: '#fff',
-    fontWeight: 'bold',
+    fontWeight: '900',
     fontSize: 16,
+    letterSpacing: 0.5,
   },
   divider: {
     height: 1,
