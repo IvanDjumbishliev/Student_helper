@@ -31,6 +31,8 @@ export default function CalendarScreen() {
   const [editingDate, setEditingDate] = useState<string | null>(null);
   const [extractedResults, setExtractedResults] = useState<any[]>([]);
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [pendingDeleteEvent, setPendingDeleteEvent] = useState<CalendarEvent | null>(null);
 
   useEffect(() => {
     fetchEvents();
@@ -145,15 +147,16 @@ export default function CalendarScreen() {
     }
   };
 
-  const handleDeleteEvent = async (eventToDelete: CalendarEvent) => {
-    if (Platform.OS === 'web') {
-      const confirmDelete = window.confirm("Сигурни ли сте, че искате да изтриете това събитие?");
-      if (confirmDelete) await processDeletion(eventToDelete);
-    } else {
-      Alert.alert("Изтриване", "Сигурни ли сте?", [
-        { text: "Отказ", style: "cancel" },
-        { text: "Изтрий", style: "destructive", onPress: () => processDeletion(eventToDelete) }
-      ]);
+  const handleDeleteEvent = (eventToDelete: CalendarEvent) => {
+    setPendingDeleteEvent(eventToDelete);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = async () => {
+    if (pendingDeleteEvent) {
+      await processDeletion(pendingDeleteEvent);
+      setShowDeleteConfirm(false);
+      setPendingDeleteEvent(null);
     }
   };
 
@@ -363,6 +366,41 @@ export default function CalendarScreen() {
           </Animated.View>
         </Animated.View>
       )}
+
+      {showDeleteConfirm && (
+        <Animated.View entering={FadeIn} style={styles.popupOverlay}>
+          <Animated.View entering={FadeIn.duration(400)} style={[styles.popupCard, { borderTopColor: '#FF6B6B', borderTopWidth: 8 }]}>
+            <View style={styles.popupHeader}>
+              <View style={styles.warningIconContainer}>
+                <Ionicons name="warning" size={32} color="#FF6B6B" />
+              </View>
+              <Text style={styles.popupTitle}>Изтриване?</Text>
+            </View>
+            <Text style={styles.popupSubtitle}>
+              Сигурни ли сте, че искате да изтриете:{"\n"}
+              <Text style={{ fontWeight: 'bold', color: '#333' }}>"{pendingDeleteEvent?.description}"</Text>?
+            </Text>
+
+            <View style={{ flexDirection: 'row', gap: 15, marginTop: 10 }}>
+              <TouchableOpacity
+                style={[styles.popupButton, { flex: 1, backgroundColor: '#f1f5f9', elevation: 0 }]}
+                onPress={() => {
+                  setShowDeleteConfirm(false);
+                  setPendingDeleteEvent(null);
+                }}
+              >
+                <Text style={[styles.popupButtonText, { color: '#666' }]}>Отказ</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.popupButton, { flex: 1, backgroundColor: '#FF6B6B' }]}
+                onPress={confirmDelete}
+              >
+                <Text style={styles.popupButtonText}>Изтрий</Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        </Animated.View>
+      )}
     </View>
   );
 }
@@ -401,5 +439,6 @@ const styles = StyleSheet.create({
   popupItemDate: { fontSize: 12, color: '#666666', fontWeight: 'bold', marginBottom: 2 },
   popupItemDesc: { fontSize: 15, color: '#333333', fontWeight: '700' },
   popupButton: { backgroundColor: '#80b48c', paddingVertical: 18, borderRadius: 18, alignItems: 'center', elevation: 4 },
-  popupButtonText: { color: '#fff', fontWeight: '900', fontSize: 18 }
+  popupButtonText: { color: '#fff', fontWeight: '900', fontSize: 18 },
+  warningIconContainer: { backgroundColor: '#FFF5F5', padding: 10, borderRadius: 20 },
 });

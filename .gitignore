@@ -11,5 +11,4 @@ db.sqlite3
 .env
 config
 *.pyc
-backend/chroma_db
-backend/chroma_db/chroma.sqlite3
+backend/chroma_db/
