@@ -9,7 +9,7 @@ import { API_URL } from '../../config/api';
 import Markdown from 'react-native-markdown-display';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { FadeInDown, FadeInUp, ZoomIn } from 'react-native-reanimated';
+import Animated, { FadeIn } from 'react-native-reanimated';
 
 export default function SchoolworkAnalysisScreen() {
     const { session } = useSession();
@@ -58,14 +58,14 @@ export default function SchoolworkAnalysisScreen() {
                 if (res.ok) {
                     setAnalysisContent(data.content);
                     setViewTitle(data.subject);
-                    setViewSubtitle(data.topic || (data.type === 'past_exam' ? 'Exam Review' : 'Homework Help'));
+                    setViewSubtitle(data.topic || (data.type === 'past_exam' ? 'Преглед на изпит' : 'Помощ за домашно'));
                 } else {
-                    Alert.alert("Error", "Could not load analysis.");
+                    Alert.alert("Грешка", "Неуспешно зареждане на анализа.");
                     resetForm();
                 }
             } catch (e) {
                 console.log(e);
-                Alert.alert("Error", "Network error.");
+                Alert.alert("Грешка", "Проблем с мрежата.");
                 resetForm();
             } finally {
                 setLoadingView(false);
@@ -84,7 +84,7 @@ export default function SchoolworkAnalysisScreen() {
 
     const takePhoto = async () => {
         const permission = await ImagePicker.requestCameraPermissionsAsync();
-        if (!permission.granted) return Alert.alert('Permission Denied', 'Camera access is needed.');
+        if (!permission.granted) return Alert.alert('Отказ', 'Нужен е достъп до камерата.');
 
         const result = await ImagePicker.launchCameraAsync({ base64: true, quality: 0.5 });
         if (!result.canceled && result.assets[0].base64) {
@@ -99,7 +99,7 @@ export default function SchoolworkAnalysisScreen() {
     };
 
     const submitAnalysis = async () => {
-        if (!subject) return Alert.alert("Missing Info", "Please enter a subject.");
+        if (!subject) return Alert.alert("Липсваща информация", "Моля въведете предмет.");
 
         setLoading(true);
         try {
@@ -114,14 +114,14 @@ export default function SchoolworkAnalysisScreen() {
             if (response.ok) {
                 setAnalysisContent(data.analysis);
                 setViewTitle(subject);
-                setViewSubtitle("Analysis Result");
+                setViewSubtitle("Резултат от анализа");
                 setMode('view');
             } else {
-                Alert.alert("Error", data.error || "Analysis failed.");
+                Alert.alert("Грешка", data.error || "Анализа беше неуспешен.");
             }
         } catch (e) {
             console.log(e);
-            Alert.alert("Error", "Network request failed.");
+            Alert.alert("Грешка", "Неуспешна заявка.");
         } finally {
             setLoading(false);
         }
@@ -130,7 +130,7 @@ export default function SchoolworkAnalysisScreen() {
     if (mode === 'view') {
         return (
             <View style={styles.container}>
-                <LinearGradient colors={['#2563eb', '#1e40af']} style={styles.headerGradient}>
+                <LinearGradient colors={['#a0bfb9', '#c0cfd0']} style={styles.headerGradient}>
                     <View style={styles.headerContent}>
                         <TouchableOpacity onPress={resetForm} style={styles.backBtn}>
                             <Ionicons name="arrow-back" size={24} color="#fff" />
@@ -142,10 +142,10 @@ export default function SchoolworkAnalysisScreen() {
                     </View>
                 </LinearGradient>
 
-                {loadingView ? <ActivityIndicator size="large" color="#2563eb" style={{ marginTop: 50 }} /> : (
+                {loadingView ? <ActivityIndicator size="large" color="#80b48c" style={{ marginTop: 50 }} /> : (
                     <View style={styles.resultContainer}>
                         <ScrollView style={styles.resultScroll} contentContainerStyle={{ paddingBottom: 40 }}>
-                            <Animated.View entering={FadeInUp.duration(600).springify()} style={styles.markdownBox}>
+                            <Animated.View entering={FadeIn.duration(600)} style={styles.markdownBox}>
                                 <Markdown style={markdownStyles}>{analysisContent}</Markdown>
                             </Animated.View>
                         </ScrollView>
@@ -156,14 +156,14 @@ export default function SchoolworkAnalysisScreen() {
     }
 
     return (
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, backgroundColor: '#f8fafc' }}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, backgroundColor: '#f5f5f5' }}>
             <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
-                <Animated.View entering={FadeInDown.duration(600)} style={styles.heroSection}>
-                    <Text style={styles.heroTitle}>Schoolwork AI</Text>
-                    <Text style={styles.heroSubtitle}>Get expert insights instantly.</Text>
+                <Animated.View entering={FadeIn.duration(600)} style={styles.heroSection}>
+                    <Text style={styles.heroTitle}>ИА Училищна Помощ</Text>
+                    <Text style={styles.heroSubtitle}>Получете експертни оценки моментално.</Text>
                 </Animated.View>
 
-                <Animated.View entering={ZoomIn.duration(500).delay(100)} style={styles.card}>
+                <Animated.View entering={FadeIn.duration(500).delay(100)} style={styles.card}>
                     <View style={styles.typeSelector}>
                         {(['past_exam', 'project', 'homework'] as const).map((t) => (
                             <TouchableOpacity
@@ -173,16 +173,16 @@ export default function SchoolworkAnalysisScreen() {
                             >
                                 {type === t && <View style={styles.activeDot} />}
                                 <Text style={[styles.typeText, type === t && styles.typeTextSelected]}>
-                                    {t === 'past_exam' ? 'Exam Review' : t.charAt(0).toUpperCase() + t.slice(1)}
+                                    {t === 'past_exam' ? 'Стар изпит' : t === 'project' ? 'Проект' : 'Домашно'}
                                 </Text>
                             </TouchableOpacity>
                         ))}
                     </View>
 
-                    <Text style={styles.label}>Subject</Text>
+                    <Text style={styles.label}>Предмет</Text>
                     <TextInput
                         style={styles.input}
-                        placeholder="e.g. Mathematics"
+                        placeholder="напр. Математика"
                         placeholderTextColor="#94a3b8"
                         value={subject}
                         onChangeText={setSubject}
@@ -191,10 +191,10 @@ export default function SchoolworkAnalysisScreen() {
                     {type === 'past_exam' && (
                         <View style={styles.row}>
                             <View style={{ flex: 1, marginRight: 10 }}>
-                                <Text style={styles.label}>Grade Evaluated</Text>
+                                <Text style={styles.label}>Оценка (ако е имало)</Text>
                                 <TextInput
                                     style={styles.input}
-                                    placeholder="e.g. B+"
+                                    placeholder="напр. B+ или 5"
                                     placeholderTextColor="#94a3b8"
                                     value={grade}
                                     onChangeText={setGrade}
@@ -205,10 +205,10 @@ export default function SchoolworkAnalysisScreen() {
 
                     {(type === 'project' || type === 'homework') && (
                         <>
-                            <Text style={styles.label}>Topic</Text>
+                            <Text style={styles.label}>Тема</Text>
                             <TextInput
                                 style={styles.input}
-                                placeholder="Specific topic or title..."
+                                placeholder="Специфична тема или заглавие..."
                                 placeholderTextColor="#94a3b8"
                                 value={topic}
                                 onChangeText={setTopic}
@@ -217,18 +217,18 @@ export default function SchoolworkAnalysisScreen() {
                     )}
 
                     <Text style={styles.label}>
-                        {type === 'past_exam' ? 'Mistakes & Context' : 'Details & Requirements'}
+                        {type === 'past_exam' ? 'Грешки и Контекст' : 'Детайли и Изисквания'}
                     </Text>
                     <TextInput
                         style={[styles.input, styles.textArea]}
-                        placeholder="Type your notes here..."
+                        placeholder="Напишете вашите бележки тук..."
                         placeholderTextColor="#94a3b8"
                         multiline
                         value={type === 'past_exam' ? mistakes : notes}
                         onChangeText={type === 'past_exam' ? setMistakes : setNotes}
                     />
 
-                    <Text style={styles.label}>Attachments</Text>
+                    <Text style={styles.label}>Прикачени файлове</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.attachScroll}>
                         <TouchableOpacity style={styles.addImgBtn} onPress={takePhoto}>
                             <Ionicons name="camera" size={24} color="#64748b" />
@@ -249,13 +249,13 @@ export default function SchoolworkAnalysisScreen() {
                         style={{ marginTop: 20 }}
                     >
                         <LinearGradient
-                            colors={['#2563eb', '#1d4ed8']}
+                            colors={['#80b48c', '#a0bfb9']}
                             style={styles.gradientBtn}
                         >
                             {loading ? <ActivityIndicator color="#fff" /> : (
                                 <>
                                     <Ionicons name="sparkles" size={20} color="#fff" style={{ marginRight: 8 }} />
-                                    <Text style={styles.submitText}>Analyze with AI</Text>
+                                    <Text style={styles.submitText}>Анализирай с ИА</Text>
                                 </>
                             )}
                         </LinearGradient>
@@ -267,56 +267,56 @@ export default function SchoolworkAnalysisScreen() {
 }
 
 const markdownStyles = StyleSheet.create({
-    body: { fontSize: 16, color: '#334155', lineHeight: 26 },
-    heading1: { fontSize: 28, fontWeight: '800', color: '#1e293b', marginTop: 24, marginBottom: 12, letterSpacing: -0.5 },
-    heading2: { fontSize: 22, fontWeight: '700', color: '#2563eb', marginTop: 20, marginBottom: 10, letterSpacing: -0.3 },
-    heading3: { fontSize: 18, fontWeight: '700', color: '#475569', marginTop: 16, marginBottom: 8 },
-    strong: { fontWeight: '700', color: '#0f172a' },
-    link: { color: '#2563eb', textDecorationLine: 'underline' },
+    body: { fontSize: 16, color: '#333333', lineHeight: 26 },
+    heading1: { fontSize: 28, fontWeight: '900', color: '#333333', marginTop: 24, marginBottom: 12, letterSpacing: -0.5 },
+    heading2: { fontSize: 22, fontWeight: '800', color: '#80b48c', marginTop: 20, marginBottom: 10, letterSpacing: -0.3 },
+    heading3: { fontSize: 18, fontWeight: '700', color: '#444444', marginTop: 16, marginBottom: 8 },
+    strong: { fontWeight: '700', color: '#111111' },
+    link: { color: '#80b48c', textDecorationLine: 'underline' },
     list_item: { marginBottom: 8, flexDirection: 'row', alignItems: 'flex-start' },
-    bullet_list_icon: { color: '#2563eb', fontSize: 22, marginRight: 8, marginTop: -2 },
-    blockquote: { backgroundColor: '#f0f9ff', padding: 16, borderLeftWidth: 4, borderLeftColor: '#2563eb', marginVertical: 12, borderRadius: 8 },
-    code_inline: { backgroundColor: '#f1f5f9', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, color: '#e11d48', fontSize: 14, overflow: 'hidden' },
+    bullet_list_icon: { color: '#80b48c', fontSize: 22, marginRight: 8, marginTop: -2 },
+    blockquote: { backgroundColor: '#f1f5f9', padding: 16, borderLeftWidth: 4, borderLeftColor: '#80b48c', marginVertical: 12, borderRadius: 8 },
+    code_inline: { backgroundColor: '#f1f5f9', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, color: '#ef4444', fontSize: 14, overflow: 'hidden' },
     code_block: { backgroundColor: '#1e293b', padding: 16, borderRadius: 12, marginVertical: 12 },
     fence: { backgroundColor: '#1e293b', padding: 16, borderRadius: 12, marginVertical: 12, color: '#f8fafc' },
 });
 
 const styles = StyleSheet.create({
-    container: { flex: 1 },
-    headerGradient: { paddingTop: Platform.OS === 'ios' ? 60 : 40, paddingBottom: 20, paddingHorizontal: 20, borderBottomLeftRadius: 24, borderBottomRightRadius: 24, elevation: 5 },
+    container: { flex: 1, backgroundColor: '#f5f5f5' },
+    headerGradient: { paddingTop: Platform.OS === 'ios' ? 60 : 40, paddingBottom: 25, paddingHorizontal: 20, borderBottomLeftRadius: 32, borderBottomRightRadius: 32, elevation: 8, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 15 },
     headerContent: { flexDirection: 'row', alignItems: 'center' },
-    backBtn: { padding: 8, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 12, marginRight: 15 },
-    viewTitle: { fontSize: 22, fontWeight: 'bold', color: '#fff' },
-    viewSubtitle: { fontSize: 14, color: 'rgba(255,255,255,0.8)', marginTop: 2 },
+    backBtn: { padding: 10, backgroundColor: 'rgba(255,255,255,0.25)', borderRadius: 14, marginRight: 15 },
+    viewTitle: { fontSize: 24, fontWeight: '900', color: '#fff' },
+    viewSubtitle: { fontSize: 14, color: 'rgba(255,255,255,0.9)', marginTop: 2, fontWeight: '500' },
 
-    resultContainer: { flex: 1, backgroundColor: '#f1f5f9' },
+    resultContainer: { flex: 1, backgroundColor: '#f5f5f5' },
     resultScroll: { flex: 1, padding: 20 },
-    markdownBox: { backgroundColor: '#fff', borderRadius: 24, padding: 24, minHeight: 400, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, elevation: 2, marginBottom: 40 },
+    markdownBox: { backgroundColor: '#fff', borderRadius: 28, padding: 25, minHeight: 400, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 15, elevation: 4, marginBottom: 40 },
 
     heroSection: { paddingTop: Platform.OS === 'ios' ? 70 : 50, paddingHorizontal: 25, paddingBottom: 30 },
-    heroTitle: { fontSize: 32, fontWeight: '900', color: '#1e293b', letterSpacing: -1 },
-    heroSubtitle: { fontSize: 16, color: '#64748b', marginTop: 5 },
+    heroTitle: { fontSize: 34, fontWeight: '900', color: '#333333', letterSpacing: -1 },
+    heroSubtitle: { fontSize: 16, color: '#666666', marginTop: 5, fontWeight: '500' },
 
-    card: { backgroundColor: '#fff', borderRadius: 30, padding: 25, marginHorizontal: 20, shadowColor: '#64748b', shadowOpacity: 0.1, shadowRadius: 20, elevation: 10, marginBottom: 20 },
+    card: { backgroundColor: '#fff', borderRadius: 32, padding: 25, marginHorizontal: 20, shadowColor: '#a0bfb9', shadowOpacity: 0.15, shadowRadius: 20, elevation: 12, marginBottom: 40 },
 
-    typeSelector: { flexDirection: 'row', backgroundColor: '#f8fafc', borderRadius: 16, padding: 5, marginBottom: 25 },
-    typeBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 12, flexDirection: 'row', justifyContent: 'center' },
-    typeBtnSelected: { backgroundColor: '#fff', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
-    typeText: { fontWeight: '600', color: '#94a3b8', fontSize: 13 },
-    typeTextSelected: { color: '#1e293b', fontWeight: '800' },
-    activeDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#2563eb', marginRight: 6 },
+    typeSelector: { flexDirection: 'row', backgroundColor: '#f1f5f9', borderRadius: 18, padding: 6, marginBottom: 25 },
+    typeBtn: { flex: 1, paddingVertical: 14, alignItems: 'center', borderRadius: 14, flexDirection: 'row', justifyContent: 'center' },
+    typeBtnSelected: { backgroundColor: '#fff', shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 6, elevation: 3 },
+    typeText: { fontWeight: '700', color: '#666666', fontSize: 13 },
+    typeTextSelected: { color: '#333333', fontWeight: '900' },
+    activeDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#80b48c', marginRight: 8 },
 
-    label: { fontSize: 12, fontWeight: '700', color: '#64748b', marginBottom: 8, marginTop: 16, textTransform: 'uppercase', letterSpacing: 0.5 },
-    input: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 16, padding: 16, fontSize: 16, color: '#1e293b' },
-    textArea: { height: 120, textAlignVertical: 'top' },
+    label: { fontSize: 12, fontWeight: '900', color: '#666666', marginBottom: 10, marginTop: 20, textTransform: 'uppercase', letterSpacing: 0.8 },
+    input: { backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#c0cfd0', borderRadius: 18, padding: 18, fontSize: 16, color: '#333333' },
+    textArea: { height: 140, textAlignVertical: 'top' },
     row: { flexDirection: 'row' },
 
-    attachScroll: { flexDirection: 'row', marginTop: 5, marginBottom: 15 },
-    addImgBtn: { width: 80, height: 80, borderRadius: 16, backgroundColor: '#f8fafc', justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#e2e8f0', borderStyle: 'dashed', marginRight: 10 },
-    imgPreview: { width: 80, height: 80, borderRadius: 16, overflow: 'hidden', marginRight: 10, borderWidth: 1, borderColor: '#e2e8f0' },
+    attachScroll: { flexDirection: 'row', marginTop: 10, marginBottom: 20 },
+    addImgBtn: { width: 85, height: 85, borderRadius: 18, backgroundColor: '#f1f5f9', justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#c0cfd0', borderStyle: 'dashed', marginRight: 12 },
+    imgPreview: { width: 85, height: 85, borderRadius: 18, overflow: 'hidden', marginRight: 12, borderWidth: 1, borderColor: '#c0cfd0' },
     previewImage: { width: '100%', height: '100%' },
-    removeBtn: { position: 'absolute', top: 4, right: 4, backgroundColor: '#ef4444', borderRadius: 8, padding: 4 },
+    removeBtn: { position: 'absolute', top: 5, right: 5, backgroundColor: '#ef4444', borderRadius: 10, padding: 5 },
 
-    gradientBtn: { padding: 18, borderRadius: 18, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' },
-    submitText: { color: '#fff', fontWeight: 'bold', fontSize: 17 },
+    gradientBtn: { padding: 20, borderRadius: 20, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', elevation: 6, shadowColor: '#80b48c', shadowOpacity: 0.3, shadowRadius: 10 },
+    submitText: { color: '#fff', fontWeight: '900', fontSize: 18, letterSpacing: 0.5 },
 });

@@ -9,12 +9,12 @@ export default function AppLayout() {
         headerShown: false,
       }}
     >
-      <Tabs.Screen name="home" options={{ title: "Home" }} />
-      <Tabs.Screen name="AiChat" options={{ title: "AI Chat" }} />
-      <Tabs.Screen name="schoolwork" options={{ title: "Analysis" }} />
-      <Tabs.Screen name="testGenerator" options={{ title: "Quiz" }} />
-      <Tabs.Screen name="calendar" options={{ title: "Calendar" }} />
-      <Tabs.Screen name="profile" options={{ title: "Profile" }} />
+      <Tabs.Screen name="home" options={{ title: "Начало" }} />
+      <Tabs.Screen name="AiChat" options={{ title: "ИА Чат" }} />
+      <Tabs.Screen name="schoolwork" options={{ title: "Анализ" }} />
+      <Tabs.Screen name="testGenerator" options={{ title: "Тест" }} />
+      <Tabs.Screen name="calendar" options={{ title: "Календар" }} />
+      <Tabs.Screen name="profile" options={{ title: "Профил" }} />
     </Tabs>
   );
 }
