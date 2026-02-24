@@ -7,7 +7,9 @@ web-build/
 .DS_Store
 venv/
 __pycache__/
-*.sqlite3
+db.sqlite3
+.env
 config
 *.pyc
-backend/chroma_db/
+backend/chroma_db
+backend/chroma_db/chroma.sqlite3
