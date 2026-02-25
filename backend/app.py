@@ -355,9 +355,10 @@ def handle_chat():
         )
         relevant_docs = []
         if search_results['documents'] and search_results['documents'][0]:
-            print(search_results['distances'][0])
+            print(len(search_results['documents'][0]))
+            print(search_results['distances'])
             for doc, distance in zip(search_results['documents'][0], search_results['distances'][0]):
-                if distance <= 1:
+                if distance <= 1.5:
                     relevant_docs.append(doc)
 
             if relevant_docs:
@@ -490,6 +491,7 @@ def extract_events():
                 metadatas=[{"user_id": str(current_user_id)}]
             )
             added_events.append(item)
+            print("Event added")
 
         db.session.commit()
 
@@ -810,14 +812,15 @@ def get_schoolwork_detail(id):
 with app.app_context():
     db.create_all() 
 
-    if collection.count() == 0:
-        print("Vector DB empty. Re-indexing existing events...")
-        all_events = Event.query.all()
-        if all_events:
-            collection.add(
-                ids=[str(e.id) for e in all_events],
-                documents=[f"Date: {e.date}, Task: {e.description}" for e in all_events],
-                metadatas=[{"user_id": str(e.user_id)} for e in all_events]
-            )
+    chroma_client.delete_collection("user_events")
+    collection = chroma_client.get_or_create_collection(name="user_events", embedding_function=sentence_transformer_ef)
+    
+    all_events = Event.query.all()
+    if all_events:
+        collection.add(
+            ids=[str(e.id) for e in all_events],
+            documents=[f"Date: {e.date}, Task: {e.description}" for e in all_events],
+            metadatas=[{"user_id": str(e.user_id)} for e in all_events]
+        )
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
