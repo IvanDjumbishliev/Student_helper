@@ -380,26 +380,45 @@ def handle_chat():
         if not user_text:
             current_parts.insert(0, types.Part.from_text(text="Describe this image."))
 
-    try:
-        chat = client.chats.create(
-            model="gemini-flash-latest",
-            config=types.GenerateContentConfig(
-                system_instruction=f"""
-                You are a helpful student assistant, focus on giving short and clear answers. 
+    models_to_try = [
+        "gemini-flash-latest", 
+        "gemini-2.5-flash",
+        "gemini-2.5-flash-lite"  
+    ]
 
-                Note that today's date is : {today_str} ({day_name}), just in case.
-                {context}.
-                IMPORTANT: Always format mathematical formulas using standard Markdown code blocks or inline backticks. 
-                Example: `x = y^2`. 
-                Strictly avoid using LaTeX symbols like $, $$, or \\[ \\]. 
-                """
-            ),
-            history=gemini_history
-        )
+    ai_reply = None
+    last_error = None
 
-        response = chat.send_message(message=current_parts)
-        ai_reply = response.text
-        
+    for model_name in models_to_try:
+        try:
+            print(f"Trying chat with model: {model_name}")
+            chat = client.chats.create(
+                model=model_name,
+                config=types.GenerateContentConfig(
+                    system_instruction=f"""
+                    You are a helpful student assistant, focus on giving short and clear answers. 
+                    Note that today's date is : {today_str} ({day_name}).
+                    {context}.
+                    IMPORTANT: Always format mathematical formulas using standard Markdown code blocks or inline backticks. 
+                    Example: `x = y^2`. Strictly avoid LaTeX symbols like $, $$.
+                    """
+                ),
+                history=gemini_history
+            )
+
+            response = chat.send_message(message=current_parts)
+            ai_reply = response.text
+            break 
+
+        except Exception as e:
+            print(f"Model {model_name} failed: {e}")
+            last_error = e
+            continue
+
+    if not ai_reply:
+        return jsonify({"error": f"All AI models failed. Last error: {str(last_error)}"}), 500
+
+    try: 
         ai_db_msg = ChatMessage(session_id=session_id, role='assistant', content=ai_reply)
         db.session.add(ai_db_msg)
         db.session.flush()
