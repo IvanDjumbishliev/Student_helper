@@ -320,13 +320,14 @@ def handle_chat():
         title_preview = user_text[:30] if user_text else "Image Shared"
         chat_session = ChatSession(id=session_id, user_id=user_id, title=title_preview)
         db.session.add(chat_session)
+        db.session.flush()
 
     gemini_history = []
 
     if user_text:
         history_results = chat_collection.query(
             query_texts=[user_text],
-            n_results = 4,
+            n_results = 10,
             where = {"$and": [{"user_id":user_id}, {"session_id":str(chat_session.id)}]}
         )
         if history_results['documents'] and history_results['documents'][0]:
@@ -350,7 +351,7 @@ def handle_chat():
     if user_text:
         search_results = collection.query(
             query_texts=[user_text], 
-            n_results=3, 
+            n_results=10, 
             where={"user_id": str(user_id)} 
         )
         relevant_docs = []
@@ -484,6 +485,7 @@ def extract_events():
                 description=item['description'] 
             )
             db.session.add(new_event)
+            db.session.flush()
 
             collection.add(
                 ids=[str(new_event.id)],
