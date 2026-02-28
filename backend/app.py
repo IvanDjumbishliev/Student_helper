@@ -1,3 +1,9 @@
+try:
+    __import__('pysqlite3')
+    import sys
+    sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
+except ImportError:
+    pass
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
@@ -858,15 +864,23 @@ def get_schoolwork_detail(id):
 with app.app_context():
     db.create_all() 
 
-    chroma_client.delete_collection("user_events")
-    collection = chroma_client.get_or_create_collection(name="user_events", embedding_function=sentence_transformer_ef)
+    collection = chroma_client.get_or_create_collection(
+        name="user_events", 
+        embedding_function=sentence_transformer_ef
+    )
     
-    all_events = Event.query.all()
-    if all_events:
-        collection.add(
-            ids=[str(e.id) for e in all_events],
-            documents=[f"Date: {e.date}, Task: {e.description}" for e in all_events],
-            metadatas=[{"user_id": str(e.user_id)} for e in all_events]
-        )
+    if collection.count() == 0:
+        print("ChromaDB is empty. Syncing from SQL...")
+        all_events = Event.query.all()
+        if all_events:
+            collection.add(
+                ids=[str(e.id) for e in all_events],
+                documents=[f"Date: {e.date}, Task: {e.description}" for e in all_events],
+                metadatas=[{"user_id": str(e.user_id)} for e in all_events]
+            )
+            print(f"Synced {len(all_events)} events to ChromaDB.")
+    else:
+        print(f"ChromaDB already contains {collection.count()} events. Skipping sync.")
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
