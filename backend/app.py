@@ -481,19 +481,42 @@ def extract_events():
         "Format: {'events': [{'date': '...', 'type': '...', 'description': '...'}]}"
     )
 
-    try:
-        response = client.models.generate_content(
-            model="gemini-flash-latest",
-            contents=[
-                types.Part.from_bytes(data=image_data, mime_type="image/jpeg"),
-                prompt
-            ],
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json"
-            )
-        )
+    extracted = None
+    last_error = None
 
-        extracted = json.loads(response.text)
+    models_to_try = ['gemini-flash-latest', 'gemini-2.5-flash', 'gemini-2.5-flash-lite']
+    for model_name in models_to_try:
+        try:
+            print(f"Trying extraction with model: {model_name}")
+            response = client.models.generate_content(
+                model=model_name,
+                contents=[
+                    types.Part.from_bytes(data=image_data, mime_type="image/jpeg"),
+                    prompt
+                ],
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json"
+                )
+            )
+            
+            raw_text = response.text.strip()
+            if raw_text.startswith("```"):
+                raw_text = raw_text.split("```")[1]
+                if raw_text.startswith("json"):
+                    raw_text = raw_text[4:]
+            
+            extracted = json.loads(raw_text)
+            break 
+
+        except Exception as e:
+            print(f"Model {model_name} failed: {e}")
+            last_error = e
+            continue
+
+    if not extracted:
+        return jsonify({"error": f"AI extraction failed on all models: {str(last_error)}"}), 500
+    
+    try:
         added_events = []
         print(extracted)
         for item in extracted.get("events", []):
@@ -521,7 +544,6 @@ def extract_events():
             "message": f"Added {len(added_events)} events to your calendar",
             "events": added_events
         })
-
     except Exception as e:
         print(f"AI Extraction Error: {e}")
         db.session.rollback()
