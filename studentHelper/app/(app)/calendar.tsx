@@ -160,53 +160,37 @@ export default function CalendarScreen() {
     }
   };
 
-  const handleAddEvent = async () => {
+ const handleAddEvent = async () => {
     const today = new Date().toISOString().split('T')[0];
     if (selectedDate < today) return;
     if (!description.trim()) return;
 
+    const currentDescription = description;
+    const currentType = eventType;
+    handleCloseForm(); 
+
     try {
-      if (editingEvent && editingDate) {
-        await fetch(`${API_URL}/events/delete`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session}`
-          },
-          body: JSON.stringify({
-            id: editingEvent.id,
-            date: editingDate,
-            description: editingEvent.description
-          }),
+        const response = await fetch(`${API_URL}/events`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session}`
+            },
+            body: JSON.stringify({
+                date: selectedDate,
+                type: currentType,
+                description: currentDescription.trim(),
+            }),
         });
-      }
 
-      const response = await fetch(`${API_URL}/events`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session}`
-        },
-        body: JSON.stringify({
-          date: selectedDate,
-          type: eventType,
-          description: description.trim(),
-        }),
-      });
-
-      if (response.status === 401 || response.status === 422) {
-        signOut();
-        return;
-      }
-
-      if (response.ok) {
-        handleCloseForm();
-        fetchEvents();
-      }
+        if (response.ok) {
+            fetchEvents();
+        }
     } catch (error) {
-      console.error(error);
+        console.error(error);
+        Alert.alert("Грешка", "Не успяхме да запишем събитието.");
     }
-  };
+};
 
   const handleEdit = (event: CalendarEvent) => {
     setEditingEvent(event);
