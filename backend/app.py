@@ -875,7 +875,7 @@ with app.app_context():
         if all_events:
             collection.add(
                 ids=[str(e.id) for e in all_events],
-                documents=[f"Date: {e.date}, Task: {e.description}" for e in all_events],
+                documents=[f"Date: {e.date}, Type: {e.type}, Task: {e.description}" for e in all_events],
                 metadatas=[{"user_id": str(e.user_id)} for e in all_events]
             )
             print(f"Synced {len(all_events)} events to ChromaDB.")
