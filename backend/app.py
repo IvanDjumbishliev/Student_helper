@@ -6,9 +6,10 @@ except ImportError:
     pass
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, decode_token
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_sqlalchemy import SQLAlchemy
+from flask_socketio import SocketIO, emit, disconnect
 from sqlalchemy.pool import NullPool
 from sqlalchemy import func, cast, Float
 from dotenv import load_dotenv
@@ -42,6 +43,8 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
 
 db = SQLAlchemy(app)
 jwt = JWTManager(app)
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
+active_socket_users = {}
 
 chroma_client = chromadb.PersistentClient(path="./chroma_db")
 sentence_transformer_ef = embedding_functions.SentenceTransformerEmbeddingFunction(model_name="all-MiniLM-L6-v2")
@@ -306,12 +309,7 @@ def change_password():
 
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
-@app.route('/chat/message', methods=['POST'])
-@jwt_required()
-def handle_chat():
-    user_id = str(get_jwt_identity())
-    data_in = request.json
-    
+def process_chat_message(user_id: str, data_in: dict, stream_callback=None):
     session_id = data_in.get("session_id")
     image_b64 = data_in.get("image")
     user_text = data_in.get("message", "").strip()
@@ -320,9 +318,11 @@ def handle_chat():
     today_str = now.strftime("%Y-%m-%d")
     day_name = now.strftime("%A")
 
-
     if not user_text and not image_b64:
-        return jsonify({"error": "Empty message"}), 400
+        return {"error": "Empty message"}, 400
+
+    if not session_id:
+        return {"error": "Missing session_id"}, 400
 
     chat_session = db.session.get(ChatSession, session_id)
     if not chat_session:
@@ -336,8 +336,8 @@ def handle_chat():
     if user_text:
         history_results = chat_collection.query(
             query_texts=[user_text],
-            n_results = 10,
-            where = {"$and": [{"user_id":user_id}, {"session_id":str(chat_session.id)}]}
+            n_results=10,
+            where={"$and": [{"user_id": user_id}, {"session_id": str(chat_session.id)}]}
         )
         if history_results['documents'] and history_results['documents'][0]:
             for doc, meta, dist in zip(history_results['documents'][0], history_results['metadatas'][0], history_results['distances'][0]):
@@ -353,15 +353,15 @@ def handle_chat():
     chat_collection.add(
         ids=[str(chat_session.id) + "_" + str(user_db_msg.id)],
         documents=[user_text],
-        metadatas=[{"role":"user", "user_id":str(user_id), "session_id":str(chat_session.id)}]
+        metadatas=[{"role": "user", "user_id": str(user_id), "session_id": str(chat_session.id)}]
     )
 
     context = ""
     if user_text:
         search_results = collection.query(
-            query_texts=[user_text], 
-            n_results=10, 
-            where={"user_id": str(user_id)} 
+            query_texts=[user_text],
+            n_results=10,
+            where={"user_id": str(user_id)}
         )
         relevant_docs = []
         if search_results['documents'] and search_results['documents'][0]:
@@ -378,21 +378,21 @@ def handle_chat():
     current_parts = []
     if user_text:
         current_parts.append(types.Part.from_text(text=user_text))
-    
+
     if image_b64:
         if "," in image_b64:
             image_b64 = image_b64.split(",")[1]
-        
+
         image_data = base64.b64decode(image_b64.strip())
         current_parts.append(types.Part.from_bytes(data=image_data, mime_type="image/jpeg"))
-        
+
         if not user_text:
             current_parts.insert(0, types.Part.from_text(text="Describe this image."))
 
     models_to_try = [
-        "gemini-flash-latest", 
+        "gemini-flash-latest",
         "gemini-2.5-flash",
-        "gemini-2.5-flash-lite"  
+        "gemini-2.5-flash-lite"
     ]
 
     ai_reply = None
@@ -405,19 +405,37 @@ def handle_chat():
                 model=model_name,
                 config=types.GenerateContentConfig(
                     system_instruction=f"""
-                    You are a helpful student assistant, focus on giving short and clear answers. 
+                    You are a helpful student assistant, focus on giving short and clear answers.
                     Note that today's date is : {today_str} ({day_name}).
                     {context}.
-                    IMPORTANT: Always format mathematical formulas using standard Markdown code blocks or inline backticks. 
+                    IMPORTANT: Always format mathematical formulas using standard Markdown code blocks or inline backticks.
                     Example: `x = y^2`. Strictly avoid LaTeX symbols like $, $$.
                     """
                 ),
                 history=gemini_history
             )
 
-            response = chat.send_message(message=current_parts)
-            ai_reply = response.text
-            break 
+            if stream_callback is not None:
+                stream_chunks = []
+                try:
+                    stream = chat.send_message_stream(message=current_parts)
+                    for chunk in stream:
+                        chunk_text = getattr(chunk, "text", None)
+                        if chunk_text:
+                            stream_chunks.append(chunk_text)
+                            stream_callback(chunk_text)
+
+                    ai_reply = "".join(stream_chunks).strip()
+                    if not ai_reply:
+                        raise ValueError("Empty streamed response")
+                except Exception as stream_error:
+                    print(f"Streaming failed for {model_name}, falling back to non-streaming: {stream_error}")
+                    response = chat.send_message(message=current_parts)
+                    ai_reply = response.text
+            else:
+                response = chat.send_message(message=current_parts)
+                ai_reply = response.text
+            break
 
         except Exception as e:
             print(f"Model {model_name} failed: {e}")
@@ -425,29 +443,96 @@ def handle_chat():
             continue
 
     if not ai_reply:
-        return jsonify({"error": f"All AI models failed. Last error: {str(last_error)}"}), 500
+        return {"error": f"All AI models failed. Last error: {str(last_error)}"}, 500
 
-    try: 
+    try:
         ai_db_msg = ChatMessage(session_id=session_id, role='assistant', content=ai_reply)
         db.session.add(ai_db_msg)
         db.session.flush()
         chat_collection.add(
             ids=[str(chat_session.id) + "_" + str(ai_db_msg.id) + "1"],
             documents=[ai_db_msg.content],
-            metadatas=[{"role":"ai", "user_id":str(user_id), "session_id":str(chat_session.id)}]
+            metadatas=[{"role": "ai", "user_id": str(user_id), "session_id": str(chat_session.id)}]
         )
 
         db.session.commit()
 
-        return jsonify({
-            "status": "success", 
-            "id": ai_db_msg.id, 
+        return {
+            "status": "success",
+            "session_id": str(session_id),
+            "id": ai_db_msg.id,
             "reply": ai_reply
-        })
+        }, 200
 
     except Exception as e:
+        db.session.rollback()
         print(f"Error: {e}")
-        return jsonify({"error": str(e)}), 500
+        return {"error": str(e)}, 500
+
+@app.route('/chat/message', methods=['POST'])
+@jwt_required()
+def handle_chat():
+    user_id = str(get_jwt_identity())
+    data_in = request.json or {}
+    response, status = process_chat_message(user_id, data_in)
+    return jsonify(response), status
+
+@socketio.on("connect")
+def socket_connect(auth):
+    token = None
+    if isinstance(auth, dict):
+        token = auth.get("token")
+
+    if not token:
+        token = request.args.get("token")
+
+    if not token:
+        print("Socket rejected: missing token")
+        return False
+
+    try:
+        decoded = decode_token(token)
+        user_id = str(decoded.get("sub"))
+        if not user_id:
+            return False
+
+        active_socket_users[request.sid] = user_id
+        print(f"Socket connected sid={request.sid} user={user_id}")
+        emit("chat:connected", {"status": "ok"})
+    except Exception as e:
+        print(f"Socket rejected: invalid token ({e})")
+        return False
+
+@socketio.on("disconnect")
+def socket_disconnect():
+    active_socket_users.pop(request.sid, None)
+
+@socketio.on("chat:send")
+def socket_chat_send(payload):
+    user_id = active_socket_users.get(request.sid)
+    if not user_id:
+        emit("chat:error", {"error": "Unauthorized"})
+        disconnect()
+        return
+
+    data_in = payload or {}
+    session_id = data_in.get("session_id")
+
+    if session_id:
+        emit("chat:stream:start", {"session_id": str(session_id)})
+
+    def stream_to_client(chunk_text):
+        emit("chat:stream:chunk", {
+            "session_id": str(session_id) if session_id else None,
+            "chunk": chunk_text
+        })
+
+    response, status = process_chat_message(user_id, data_in, stream_callback=stream_to_client)
+    if status >= 400:
+        emit("chat:error", response)
+        return
+
+    emit("chat:stream:end", response)
 
 
 
@@ -883,4 +968,4 @@ with app.app_context():
         print(f"ChromaDB already contains {collection.count()} events. Skipping sync.")
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    socketio.run(app, host="0.0.0.0", port=5000, debug=True, allow_unsafe_werkzeug=True)

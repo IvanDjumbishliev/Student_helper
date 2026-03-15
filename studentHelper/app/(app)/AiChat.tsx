@@ -10,6 +10,7 @@ import { API_URL } from '../../config/api';
 import { useSession } from '../../ctx';
 import Markdown from 'react-native-markdown-display'
 import Animated, { FadeIn, Layout } from 'react-native-reanimated';
+import { io, Socket } from 'socket.io-client';
 
 const TOP_PADDING = Platform.OS === 'ios' ? 60 : (StatusBar.currentHeight || 0) + 10;
 
@@ -31,17 +32,136 @@ export default function ExamTutorScreen() {
   const { session, signOut } = useSession();
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<'offline' | 'connecting' | 'online'>('offline');
   const [isHistoryVisible, setIsHistoryVisible] = useState(false);
   const [inputText, setInputText] = useState('');
   const [selectedImage, setSelectedImage] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
+  const socketRef = useRef<Socket | null>(null);
+  const pendingSessionIdRef = useRef<string | null>(null);
+  const pendingAssistantMessageIdRef = useRef<string | null>(null);
+
+  const connectionStatusLabel: Record<'offline' | 'connecting' | 'online', string> = {
+    offline: 'Офлайн',
+    connecting: 'Свързване...',
+    online: 'Онлайн',
+  };
 
   const currentChat = Array.isArray(sessions) ? sessions.find(s => s.id === currentSessionId) : null;
 
   useEffect(() => {
+    if (!session) return;
     fetchChatHistory();
-  }, []);
+  }, [session]);
+
+  useEffect(() => {
+    if (!session) {
+      setConnectionStatus('offline');
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+      return;
+    }
+
+    setConnectionStatus('connecting');
+
+    const socket = io(API_URL, {
+      transports: ['websocket'],
+      auth: { token: session },
+      autoConnect: true,
+      reconnection: true,
+    });
+
+    socket.on('chat:connected', () => {
+      console.log("Server says I'm officially allowed to chat!");
+      setConnectionStatus('online');
+    });
+
+    socket.on('disconnect', () => {
+      setConnectionStatus('offline');
+    });
+
+    socket.on('chat:stream:start', (data: { session_id?: string }) => {
+      const targetSessionId = data.session_id || pendingSessionIdRef.current;
+      if (!targetSessionId || pendingAssistantMessageIdRef.current) return;
+
+      const placeholderId = `stream-${Date.now()}`;
+      pendingAssistantMessageIdRef.current = placeholderId;
+      updateLocalMessages(targetSessionId, {
+        id: placeholderId,
+        role: 'assistant',
+        content: '',
+      });
+    });
+
+    socket.on('chat:stream:chunk', (data: { session_id?: string; chunk?: string }) => {
+      const targetSessionId = data.session_id || pendingSessionIdRef.current;
+      const pendingAssistantMessageId = pendingAssistantMessageIdRef.current;
+      const chunkText = data.chunk || '';
+
+      if (!targetSessionId || !pendingAssistantMessageId || !chunkText) return;
+
+      appendToMessage(targetSessionId, pendingAssistantMessageId, chunkText);
+    });
+
+    socket.on('chat:stream:end', (data: { id: number | string; reply: string; session_id?: string }) => {
+      const targetSessionId = data.session_id || pendingSessionIdRef.current;
+      const pendingAssistantMessageId = pendingAssistantMessageIdRef.current;
+
+      if (targetSessionId && pendingAssistantMessageId) {
+        finalizeStreamingMessage(targetSessionId, pendingAssistantMessageId, String(data.id), data.reply);
+      } else if (targetSessionId) {
+        updateLocalMessages(targetSessionId, {
+          id: String(data.id),
+          role: 'assistant',
+          content: data.reply,
+        });
+      }
+
+      setLoading(false);
+      pendingSessionIdRef.current = null;
+      pendingAssistantMessageIdRef.current = null;
+    });
+
+    socket.on('chat:error', (data: { error?: string }) => {
+      const targetSessionId = pendingSessionIdRef.current;
+      const pendingAssistantMessageId = pendingAssistantMessageIdRef.current;
+      if (targetSessionId && pendingAssistantMessageId) {
+        removeMessageById(targetSessionId, pendingAssistantMessageId);
+      }
+      setLoading(false);
+      pendingSessionIdRef.current = null;
+      pendingAssistantMessageIdRef.current = null;
+      if (data?.error === 'Unauthorized') {
+        signOut();
+        return;
+      }
+      Alert.alert('Error', data?.error || 'Could not process message');
+    });
+
+    socket.on('connect_error', () => {
+      setConnectionStatus('offline');
+      setLoading(false);
+      pendingSessionIdRef.current = null;
+      pendingAssistantMessageIdRef.current = null;
+    });
+
+    socketRef.current = socket;
+
+    return () => {
+      socket.off('chat:connected');
+      socket.off('disconnect');
+      socket.off('chat:stream:start');
+      socket.off('chat:stream:chunk');
+      socket.off('chat:stream:end');
+      socket.off('chat:error');
+      socket.off('connect_error');
+      socket.disconnect();
+      socketRef.current = null;
+    };
+  }, [session, signOut]);
 
   const fetchChatHistory = async () => {
     if (!session) return;
@@ -95,7 +215,8 @@ export default function ExamTutorScreen() {
     setIsHistoryVisible(false);
   };
 
-  const handleSendMessage = async () => {
+  const handleSendMessage = () => {
+    if (loading) return;
     if (!inputText.trim() && !selectedImage) return;
 
     let targetSessionId = currentSessionId;
@@ -125,45 +246,56 @@ export default function ExamTutorScreen() {
     setInputText('');
     setSelectedImage(null);
 
-    await sendToAI(targetSessionId, b64, textToSend);
+    sendToAI(targetSessionId, b64, textToSend);
   };
 
-  const sendToAI = async (sessionId: string, imageB64?: string | null, text?: string) => {
+  const sendToAI = (sessionId: string, imageB64?: string | null, text?: string) => {
     if (!session) return;
-    setLoading(true);
-    try {
-      const response = await fetch(`${API_URL}/chat/message`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ session_id: sessionId, image: imageB64, message: text }),
-      });
+    const socket = socketRef.current;
 
-      if (response.status === 401 || response.status === 422) {
-        signOut();
-        return;
-      }
-
-      const data = await response.json();
-      if (response.ok) {
-        const aiMsg: Message = {
-          id: data.id.toString(),
-          role: 'assistant',
-          content: data.reply
-        };
-        updateLocalMessages(sessionId, aiMsg);
-      }
-    } catch (error) {
-      Alert.alert("Error", "Server unreachable");
-    } finally {
-      setLoading(false);
+    if (!socket || !socket.connected) {
+      Alert.alert('Connection', 'Chat socket is not connected. Please try again.');
+      return;
     }
+
+    pendingSessionIdRef.current = sessionId;
+    pendingAssistantMessageIdRef.current = null;
+    setLoading(true);
+    socket.emit('chat:send', { session_id: sessionId, image: imageB64, message: text });
   };
 
   const updateLocalMessages = (sessionId: string, newMessage: Message) => {
     setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, messages: [...s.messages, newMessage] } : s));
+  };
+
+  const appendToMessage = (sessionId: string, messageId: string, chunk: string) => {
+    setSessions(prev => prev.map(s => {
+      if (s.id !== sessionId) return s;
+      return {
+        ...s,
+        messages: s.messages.map(m => m.id === messageId ? { ...m, content: (m.content || '') + chunk } : m)
+      };
+    }));
+  };
+
+  const finalizeStreamingMessage = (sessionId: string, temporaryMessageId: string, finalMessageId: string, finalContent: string) => {
+    setSessions(prev => prev.map(s => {
+      if (s.id !== sessionId) return s;
+      return {
+        ...s,
+        messages: s.messages.map(m => m.id === temporaryMessageId ? { ...m, id: finalMessageId, content: finalContent } : m)
+      };
+    }));
+  };
+
+  const removeMessageById = (sessionId: string, messageId: string) => {
+    setSessions(prev => prev.map(s => {
+      if (s.id !== sessionId) return s;
+      return {
+        ...s,
+        messages: s.messages.filter(m => m.id !== messageId)
+      };
+    }));
   };
 
   return (
@@ -174,6 +306,30 @@ export default function ExamTutorScreen() {
         <TouchableOpacity onPress={() => setIsHistoryVisible(true)}>
           <Ionicons name="menu-outline" size={30} color="#333333" />
         </TouchableOpacity>
+        <View style={styles.connectionWrap}>
+          <Text
+            style={[
+              styles.connectionText,
+              connectionStatus === 'online'
+                ? styles.textOnline
+                : connectionStatus === 'connecting'
+                ? styles.textConnecting
+                : styles.textOffline,
+            ]}
+          >
+            {connectionStatusLabel[connectionStatus]}
+          </Text>
+          <View
+            style={[
+              styles.connectionDot,
+              connectionStatus === 'online'
+                ? styles.dotOnline
+                : connectionStatus === 'connecting'
+                ? styles.dotConnecting
+                : styles.dotOffline,
+            ]}
+          />
+        </View>
         <TouchableOpacity onPress={startNewChat}>
           <Ionicons name="add-circle-outline" size={30} color="#80b48c" />
         </TouchableOpacity>
@@ -265,6 +421,15 @@ export default function ExamTutorScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f5f5', paddingTop: TOP_PADDING },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, height: 60, borderBottomWidth: 1, borderBottomColor: '#c0cfd0', backgroundColor: '#fff' },
+  connectionWrap: { alignItems: 'center', justifyContent: 'center' },
+  connectionText: { fontSize: 12, fontWeight: '800', marginBottom: 4, letterSpacing: 0.3, textTransform: 'uppercase' },
+  textOnline: { color: '#16a34a' },
+  textConnecting: { color: '#d97706' },
+  textOffline: { color: '#dc2626' },
+  connectionDot: { width: 10, height: 10, borderRadius: 5 },
+  dotOnline: { backgroundColor: '#22c55e' },
+  dotConnecting: { backgroundColor: '#f59e0b' },
+  dotOffline: { backgroundColor: '#ef4444' },
   headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#333333' },
   chatList: { padding: 15, paddingBottom: 30 },
   msgWrapper: { marginBottom: 15, width: '100%' },
