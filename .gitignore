@@ -10,6 +10,8 @@ __pycache__/
 db.sqlite3
 .env
 config
+!studentHelper/config/
+!studentHelper/config/api.ts
 *.pyc
 backend/chroma_db/
 venv312/
